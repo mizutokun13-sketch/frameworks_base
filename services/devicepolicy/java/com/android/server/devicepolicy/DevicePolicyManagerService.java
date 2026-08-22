@@ -7701,11 +7701,7 @@ public class DevicePolicyManagerService extends BaseIDevicePolicyManager {
      * or {@link DevicePolicyManager#ENCRYPTION_STATUS_ACTIVE_PER_USER}.
      */
     private int getEncryptionStatus() {
-        if (mInjector.storageManagerIsFileBasedEncryptionEnabled()) {
-            return DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_PER_USER;
-        } else {
-            return DevicePolicyManager.ENCRYPTION_STATUS_UNSUPPORTED;
-        }
+        return DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_PER_USER;
     }
 
     /**

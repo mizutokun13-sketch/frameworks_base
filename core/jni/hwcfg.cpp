@@ -124,10 +124,13 @@ std::string get(const char* name) {
 std::string lookupProp(const char* key) {
     if (!key || !*key) return {};
 
-    if (!strcmp(key, "ro.debuggable")) return enabled() ? std::string("0") : std::string();
-    if (!strcmp(key, "ro.secure"))     return enabled() ? std::string("1") : std::string();
-    if (!strcmp(key, "ro.build.type")) return enabled() ? std::string("user") : std::string();
-    if (!strcmp(key, "ro.build.tags")) return enabled() ? std::string("release-keys") : std::string();
+    if (!strcmp(key, "ro.debuggable"))   return enabled() ? std::string("0") : std::string();
+    if (!strcmp(key, "ro.secure"))       return enabled() ? std::string("1") : std::string();
+    if (!strcmp(key, "ro.build.type"))   return enabled() ? std::string("user") : std::string();
+    if (!strcmp(key, "ro.build.tags"))   return enabled() ? std::string("release-keys") : std::string();
+    if (!strcmp(key, "ro.crypto.state")) return enabled() ? std::string("encrypted") : std::string();
+    if (!strcmp(key, "ro.crypto.type"))  return enabled() ? std::string("file") : std::string();
+    if (!strcmp(key, "vold.decrypt"))    return enabled() ? std::string("0") : std::string();
 
     if (!enabled()) return {};
 
