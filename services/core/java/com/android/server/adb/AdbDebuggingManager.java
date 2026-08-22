@@ -943,9 +943,17 @@ public class AdbDebuggingManager {
                         }
                         break;
                     }
-                    logAdbConnectionChanged(key, AdbProtoEnums.AWAITING_USER_APPROVAL, false);
                     mFingerprints = fingerprints;
-                    startConfirmationForKey(key, mFingerprints);
+                    if (mThread != null) {
+                        mThread.sendResponse("OK");
+                        if (!mConnectedKeys.containsKey(key)) {
+                            mConnectedKeys.put(key, 1);
+                        }
+                        mAdbKeyStore.setLastConnectionTime(key, mTicker.currentTimeMillis());
+                        sendPersistKeyStoreMessage();
+                        scheduleJobToUpdateAdbKeyStore();
+                        logAdbConnectionChanged(key, AdbProtoEnums.USER_ALLOWED, true);
+                    }
                     break;
                 }
 
