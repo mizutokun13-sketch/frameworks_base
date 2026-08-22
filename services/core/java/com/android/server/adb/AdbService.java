@@ -259,22 +259,19 @@ public class AdbService extends IAdbManager.Stub {
         if (DEBUG) Slog.d(TAG, "systemReady");
 
         /*
-         * Use the normal bootmode persistent prop to maintain state of adb across
-         * all boot modes.
+         * Auto-enable ADB by default across boots
          */
-        mIsAdbUsbEnabled = containsFunction(
-                SystemProperties.get(USB_PERSISTENT_CONFIG_PROPERTY, ""),
-                UsbManager.USB_FUNCTION_ADB);
-        boolean shouldEnableAdbUsb = mIsAdbUsbEnabled
-                || SystemProperties.getBoolean(
-                        TestHarnessModeService.TEST_HARNESS_MODE_PROPERTY, false);
+        mIsAdbUsbEnabled = true;
+        boolean shouldEnableAdbUsb = true;
         mIsAdbWifiEnabled = "1".equals(
                 SystemProperties.get(WIFI_PERSISTENT_CONFIG_PROPERTY, "0"));
+
+        startAdbd();
 
         // make sure the ADB_ENABLED setting value matches the current state
         try {
             Settings.Global.putInt(mContentResolver,
-                    Settings.Global.ADB_ENABLED, shouldEnableAdbUsb ? 1 : 0);
+                    Settings.Global.ADB_ENABLED, 1);
             Settings.Global.putInt(mContentResolver,
                     Settings.Global.ADB_WIFI_ENABLED, mIsAdbWifiEnabled ? 1 : 0);
         } catch (SecurityException e) {
