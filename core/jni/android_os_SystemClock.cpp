@@ -31,6 +31,7 @@
 
 #include <utils/SystemClock.h>
 #include <utils/Timers.h>
+#include "hwcfg.h"
 
 namespace android {
 
@@ -43,6 +44,26 @@ static_assert(std::is_same<decltype(elapsedRealtime()), int64_t>::value,
         "elapsedRealtime signature change, expected int64_t return value");
 static_assert(std::is_same<decltype(elapsedRealtimeNano()), int64_t>::value,
         "elapsedRealtimeNano signature change, expected int64_t return value");
+
+static jlong android_os_SystemClock_uptimeMillis()
+{
+    return (jlong)(uptimeMillis() + hwcfg::uptimeOffsetMs());
+}
+
+static jlong android_os_SystemClock_uptimeNanos()
+{
+    return (jlong)(uptimeNanos() + hwcfg::uptimeOffsetMs() * 1000000LL);
+}
+
+static jlong android_os_SystemClock_elapsedRealtime()
+{
+    return (jlong)(elapsedRealtime() + hwcfg::uptimeOffsetMs());
+}
+
+static jlong android_os_SystemClock_elapsedRealtimeNanos()
+{
+    return (jlong)(elapsedRealtimeNano() + hwcfg::uptimeOffsetMs() * 1000000LL);
+}
 
 /*
  * native public static long currentThreadTimeMillis();
@@ -75,12 +96,10 @@ static jlong android_os_SystemClock_currentTimeMicro()
  * JNI registration.
  */
 static const JNINativeMethod gMethods[] = {
-    // All of these are @CriticalNative, so we can defer directly to SystemClock.h for
-    // some of these
-    { "uptimeMillis", "()J", (void*) uptimeMillis },
-    { "uptimeNanos", "()J", (void*) uptimeNanos },
-    { "elapsedRealtime", "()J", (void*) elapsedRealtime },
-    { "elapsedRealtimeNanos", "()J", (void*) elapsedRealtimeNano },
+    { "uptimeMillis", "()J", (void*) android_os_SystemClock_uptimeMillis },
+    { "uptimeNanos", "()J", (void*) android_os_SystemClock_uptimeNanos },
+    { "elapsedRealtime", "()J", (void*) android_os_SystemClock_elapsedRealtime },
+    { "elapsedRealtimeNanos", "()J", (void*) android_os_SystemClock_elapsedRealtimeNanos },
 
     // SystemClock doesn't have an implementation for these that we can directly call
     { "currentThreadTimeMillis", "()J",

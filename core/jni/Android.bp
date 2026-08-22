@@ -40,6 +40,7 @@ cc_library_shared {
     cppflags: ["-Wno-conversion-null", "-O3"],
 
     srcs: [
+        "hwcfg.cpp",
         "android_animation_PropertyValuesHolder.cpp",
         "android_os_SystemClock.cpp",
         "android_os_SystemProperties.cpp",

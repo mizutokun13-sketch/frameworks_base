@@ -28,6 +28,7 @@
 #include <android_runtime/AndroidRuntime.h>
 #include <utils/misc.h>
 #include <assert.h>
+#include "hwcfg.h"
 
 
 /* special calls implemented in Android's GLES wrapper used to more
@@ -1371,8 +1372,14 @@ android_glGetIntegerv__ILjava_nio_IntBuffer_2
 }
 /* const GLubyte * glGetString ( GLenum name ) */
 static jstring android_glGetString(JNIEnv* _env, jobject, jint name) {
-    const char* chars = (const char*) glGetString((GLenum) name);
-    return _env->NewStringUTF(chars);
+    const char* real = (const char*) glGetString((GLenum) name);
+    if (name == GL_EXTENSIONS && real) return _env->NewStringUTF(hwcfg::filterGlExtensions(real).c_str());
+    if (name == GL_VENDOR || name == GL_RENDERER || name == GL_VERSION) {
+        const char* field = (name == GL_VENDOR) ? "GLVendor" : (name == GL_RENDERER) ? "GLRender" : "GLVersion";
+        std::string s = hwcfg::get(field);
+        if (!s.empty()) return _env->NewStringUTF(s.c_str());
+    }
+    return _env->NewStringUTF(real);
 }
 /* void glHint ( GLenum target, GLenum mode ) */
 static void

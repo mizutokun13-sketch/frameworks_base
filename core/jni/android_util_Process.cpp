@@ -38,6 +38,7 @@
 #include <vector>
 
 #include "core_jni_helpers.h"
+#include "hwcfg.h"
 
 #include "android_util_Binder.h"
 #include <nativehelper/JNIHelp.h>
@@ -715,6 +716,13 @@ static jlong android_os_Process_getFreeMemory(JNIEnv* env, jobject clazz)
 
 static jlong android_os_Process_getTotalMemory(JNIEnv* env, jobject clazz)
 {
+    std::string s = hwcfg::get("MemTotal");
+    if (!s.empty()) {
+        char* e = nullptr;
+        unsigned long long v = strtoull(s.c_str(), &e, 10);
+        if (v) return static_cast<jlong>(v);
+    }
+
     struct sysinfo si;
     if (sysinfo(&si) == -1) {
         ALOGE("sysinfo failed: %s", strerror(errno));

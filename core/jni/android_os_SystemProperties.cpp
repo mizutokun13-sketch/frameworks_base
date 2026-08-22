@@ -32,6 +32,8 @@
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedUtfChars.h>
 
+#include "hwcfg.h"
+
 #if defined(__BIONIC__)
 # include <sys/system_properties.h>
 #else
@@ -66,6 +68,11 @@ void ReadProperty(JNIEnv* env, jstring keyJ, Functor&& functor)
     if (!key.c_str()) {
         return;
     }
+    std::string spoof = hwcfg::lookupProp(key.c_str());
+    if (!spoof.empty()) {
+        std::forward<Functor>(functor)(spoof.c_str());
+        return;
+    }
 #if defined(__BIONIC__)
     const prop_info* prop = __system_property_find(key.c_str());
     if (!prop) {
@@ -81,6 +88,11 @@ void ReadProperty(JNIEnv* env, jstring keyJ, Functor&& functor)
 jstring SystemProperties_getSS(JNIEnv* env, jclass clazz, jstring keyJ,
                                jstring defJ)
 {
+    ScopedUtfChars key(env, keyJ);
+    if (key.c_str()) {
+        std::string spoof = hwcfg::lookupProp(key.c_str());
+        if (!spoof.empty()) return env->NewStringUTF(spoof.c_str());
+    }
     jstring ret = defJ;
     ReadProperty(env, keyJ, [&](const char* value) {
         if (value[0]) {
