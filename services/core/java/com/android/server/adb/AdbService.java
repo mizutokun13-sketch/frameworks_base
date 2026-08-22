@@ -125,7 +125,6 @@ public class AdbService extends IAdbManager.Stub {
             mTransports.put(transport.asBinder(), transport);
             try {
                 transport.onAdbEnabled(mIsAdbUsbEnabled, AdbTransportType.USB);
-                transport.onAdbEnabled(mIsAdbWifiEnabled, AdbTransportType.WIFI);
             } catch (RemoteException e) {
                 Slog.e(TAG, "Unable to send adb state", e);
             }
@@ -276,15 +275,12 @@ public class AdbService extends IAdbManager.Stub {
 
         if (mDebuggingManager != null) {
             mDebuggingManager.setAdbEnabled(mIsAdbUsbEnabled, AdbTransportType.USB);
-            mDebuggingManager.setAdbEnabled(mIsAdbWifiEnabled, AdbTransportType.WIFI);
         }
 
         // make sure the ADB_ENABLED setting value matches the current state
         try {
             Settings.Global.putInt(mContentResolver,
                     Settings.Global.ADB_ENABLED, 1);
-            Settings.Global.putInt(mContentResolver,
-                    Settings.Global.ADB_WIFI_ENABLED, mIsAdbWifiEnabled ? 1 : 0);
         } catch (SecurityException e) {
             // If UserManager.DISALLOW_DEBUGGING_FEATURES is on, that this setting can't be changed.
             Slog.d(TAG, "ADB_ENABLED is restricted.");
