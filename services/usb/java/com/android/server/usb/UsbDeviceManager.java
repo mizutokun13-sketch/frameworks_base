@@ -1718,9 +1718,9 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
 
         private boolean waitForState(String state) {
             // wait for the transition to complete.
-            // give up after 1 second.
+            // give up after 4 seconds (80 * 50ms).
             String value = null;
-            for (int i = 0; i < 20; i++) {
+            for (int i = 0; i < 80; i++) {
                 // State transition is done when sys.usb.state is set to the new configuration
                 value = getSystemProperty(USB_STATE_PROPERTY, "");
                 if (state.equals(value)) return true;

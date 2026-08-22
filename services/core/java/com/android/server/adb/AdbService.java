@@ -123,6 +123,12 @@ public class AdbService extends IAdbManager.Stub {
         @Override
         public void registerTransport(IAdbTransport transport) {
             mTransports.put(transport.asBinder(), transport);
+            try {
+                transport.onAdbEnabled(mIsAdbUsbEnabled, AdbTransportType.USB);
+                transport.onAdbEnabled(mIsAdbWifiEnabled, AdbTransportType.WIFI);
+            } catch (RemoteException e) {
+                Slog.e(TAG, "Unable to send adb state", e);
+            }
         }
 
         @Override
@@ -267,6 +273,11 @@ public class AdbService extends IAdbManager.Stub {
                 SystemProperties.get(WIFI_PERSISTENT_CONFIG_PROPERTY, "0"));
 
         startAdbd();
+
+        if (mDebuggingManager != null) {
+            mDebuggingManager.setAdbEnabled(mIsAdbUsbEnabled, AdbTransportType.USB);
+            mDebuggingManager.setAdbEnabled(mIsAdbWifiEnabled, AdbTransportType.WIFI);
+        }
 
         // make sure the ADB_ENABLED setting value matches the current state
         try {
