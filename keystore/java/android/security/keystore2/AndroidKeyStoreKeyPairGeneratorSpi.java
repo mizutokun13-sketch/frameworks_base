@@ -26,6 +26,7 @@ import android.hardware.security.keymint.KeyPurpose;
 import android.hardware.security.keymint.SecurityLevel;
 import android.hardware.security.keymint.Tag;
 import android.os.Build;
+import android.os.Process;
 import android.os.RemoteException;
 import android.security.GenerateRkpKey;
 import android.security.IGenerateRkpKeyService;
@@ -790,6 +791,11 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
     private void addAttestationParameters(@NonNull List<KeyParameter> params)
             throws ProviderException, IllegalArgumentException, DeviceIdAttestationException {
         byte[] challenge = mSpec.getAttestationChallenge();
+
+        // Legacy Exynos hardware attestation guard: prevent TEE broken detection for third-party apps
+        if (Process.myUid() >= Process.FIRST_APPLICATION_UID) {
+            challenge = null;
+        }
 
         if (challenge != null) {
             params.add(KeyStore2ParameterUtils.makeBytes(
