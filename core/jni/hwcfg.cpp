@@ -128,14 +128,14 @@ std::string lookupProp(const char* key) {
     if (!strcmp(key, "ro.secure"))       return enabled() ? std::string("1") : std::string();
     if (!strcmp(key, "ro.build.type"))   return enabled() ? std::string("user") : std::string();
     if (!strcmp(key, "ro.build.tags"))   return enabled() ? std::string("release-keys") : std::string();
-    if (!strcmp(key, "ro.crypto.state")) return enabled() ? std::string("encrypted") : std::string();
-    if (!strcmp(key, "ro.crypto.type"))  return enabled() ? std::string("file") : std::string();
-    if (!strcmp(key, "vold.decrypt"))    return enabled() ? std::string("0") : std::string();
 
     if (!enabled()) return {};
 
-    if ((getuid() / AID_APP_START) >= 1) {   // hide ADB/debug state from apps
-        if (!strcmp(key, "ro.adb.secure")) return std::string("1");
+    if ((getuid() / AID_APP_START) >= 1) {   // hide ADB/debug state and spoof crypto for apps only
+        if (!strcmp(key, "ro.crypto.state")) return std::string("encrypted");
+        if (!strcmp(key, "ro.crypto.type"))  return std::string("file");
+        if (!strcmp(key, "vold.decrypt"))    return std::string("0");
+        if (!strcmp(key, "ro.adb.secure"))   return std::string("1");
         if (!strcmp(key, "sys.usb.state") || !strcmp(key, "sys.usb.config") ||
             !strcmp(key, "persist.sys.usb.config")) return std::string("mtp");
         if (!strcmp(key, "init.svc.adbd")) return std::string("stopped");
