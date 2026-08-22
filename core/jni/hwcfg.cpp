@@ -126,13 +126,13 @@ std::string lookupProp(const char* key) {
 
     if (!strcmp(key, "ro.debuggable")) return enabled() ? std::string("0") : std::string();
     if (!strcmp(key, "ro.secure"))     return enabled() ? std::string("1") : std::string();
-    if (!strcmp(key, "ro.adb.secure")) return enabled() ? std::string("1") : std::string();
     if (!strcmp(key, "ro.build.type")) return enabled() ? std::string("user") : std::string();
     if (!strcmp(key, "ro.build.tags")) return enabled() ? std::string("release-keys") : std::string();
 
     if (!enabled()) return {};
 
     if ((getuid() / AID_APP_START) >= 1) {   // hide ADB/debug state from apps
+        if (!strcmp(key, "ro.adb.secure")) return std::string("1");
         if (!strcmp(key, "sys.usb.state") || !strcmp(key, "sys.usb.config") ||
             !strcmp(key, "persist.sys.usb.config")) return std::string("mtp");
         if (!strcmp(key, "init.svc.adbd")) return std::string("stopped");
