@@ -415,6 +415,15 @@ public class SettingsProvider extends ContentProvider {
 
     @Override
     public Bundle call(String method, String name, Bundle args) {
+        if (Binder.getCallingUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+            if (Settings.Global.ADB_ENABLED.equals(name) ||
+                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(name) ||
+                "adb_wifi_enabled".equals(name)) {
+                Bundle res = new Bundle();
+                res.putString(Settings.NameValueTable.VALUE, "0");
+                return res;
+            }
+        }
         final int requestingUserId = getRequestingUserId(args);
         switch (method) {
             case Settings.CALL_METHOD_GET_CONFIG: {
