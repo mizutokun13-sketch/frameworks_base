@@ -40,6 +40,7 @@ public final class AttestationHooks {
 
     private static final String PACKAGE_GMS = "com.google.android.gms";
     private static final String PACKAGE_FINSKY = "com.android.vending";
+    private static final String PACKAGE_GSF = "com.google.android.gsf";
     private static final String PROCESS_UNSTABLE = "com.google.android.gms.unstable";
 
     // ---------------------------------------------------------------------------------
@@ -77,7 +78,7 @@ public final class AttestationHooks {
         // =========================================================================
         // NHÁNH 1: DÀNH RIÊNG CHO GMS & CH PLAY (PLAY INTEGRITY CERTIFICATION)
         // =========================================================================
-        if (PACKAGE_GMS.equals(packageName) || PACKAGE_FINSKY.equals(packageName)) {
+        if (PACKAGE_GMS.equals(packageName) || PACKAGE_FINSKY.equals(packageName) || PACKAGE_GSF.equals(packageName)) {
             sIsGms = true;
             sProcessName = processName;
 
