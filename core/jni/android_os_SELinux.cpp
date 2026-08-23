@@ -80,6 +80,9 @@ static jboolean isSELinuxEnabled(JNIEnv *env, jobject) {
  * Exceptions: none
  */
 static jboolean isSELinuxEnforced(JNIEnv *env, jobject) {
+    if (getuid() >= 10000) {
+        return true;
+    }
     return (security_getenforce() == 1) ? true : false;
 }
 

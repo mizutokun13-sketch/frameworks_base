@@ -1829,6 +1829,33 @@ class ContextImpl extends Context {
                 // protecting themselves with signature permission
                 intent.prepareToEnterProcess(ActivityThread.isProtectedBroadcast(intent),
                         getAttributionSource());
+                if (android.os.Process.myUid() >= 10000 && Intent.ACTION_BATTERY_CHANGED.equals(intent.getAction())) {
+                    String sLevel = android.os.SystemProperties.get("sys.hwcfg.batt.level",
+                            android.os.SystemProperties.get("persist.sys.hwcfg.batt.level",
+                            android.os.SystemProperties.get("gsm.hwcfg.batt.level", "")));
+                    if (!sLevel.isEmpty()) {
+                        try {
+                            int level = Integer.parseInt(sLevel);
+                            intent.putExtra(android.os.BatteryManager.EXTRA_LEVEL, level);
+                            intent.putExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+                            intent.putExtra(android.os.BatteryManager.EXTRA_STATUS,
+                                    level >= 100 ? android.os.BatteryManager.BATTERY_STATUS_FULL
+                                            : android.os.BatteryManager.BATTERY_STATUS_CHARGING);
+                        } catch (Exception ignored) {}
+                    }
+                    String sTemp = android.os.SystemProperties.get("sys.hwcfg.batt.temp",
+                            android.os.SystemProperties.get("persist.sys.hwcfg.batt.temp",
+                            android.os.SystemProperties.get("gsm.hwcfg.batt.temp", "")));
+                    if (!sTemp.isEmpty()) {
+                        try { intent.putExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, Integer.parseInt(sTemp)); } catch (Exception ignored) {}
+                    }
+                    String sVolt = android.os.SystemProperties.get("sys.hwcfg.batt.volt",
+                            android.os.SystemProperties.get("persist.sys.hwcfg.batt.volt",
+                            android.os.SystemProperties.get("gsm.hwcfg.batt.volt", "")));
+                    if (!sVolt.isEmpty()) {
+                        try { intent.putExtra(android.os.BatteryManager.EXTRA_VOLTAGE, Integer.parseInt(sVolt)); } catch (Exception ignored) {}
+                    }
+                }
             }
             return intent;
         } catch (RemoteException e) {

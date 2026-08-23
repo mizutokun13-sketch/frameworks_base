@@ -364,6 +364,20 @@ public class BatteryManager {
      *    if {@code targetSdkVersion >= VERSION_CODES.P}.
      */
     public int getIntProperty(int id) {
+        if (android.os.Process.myUid() >= 10000) {
+            String sLevel = android.os.SystemProperties.get("sys.hwcfg.batt.level",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.batt.level",
+                    android.os.SystemProperties.get("gsm.hwcfg.batt.level", "")));
+            if (id == BATTERY_PROPERTY_CAPACITY && !sLevel.isEmpty()) {
+                try { return Integer.parseInt(sLevel); } catch (Exception ignored) {}
+            }
+            if (id == BATTERY_PROPERTY_STATUS && !sLevel.isEmpty()) {
+                try {
+                    int level = Integer.parseInt(sLevel);
+                    return level >= 100 ? BATTERY_STATUS_FULL : BATTERY_STATUS_CHARGING;
+                } catch (Exception ignored) {}
+            }
+        }
         long value = queryProperty(id);
         if (value == Long.MIN_VALUE && mContext != null
                 && mContext.getApplicationInfo().targetSdkVersion
@@ -384,6 +398,14 @@ public class BatteryManager {
      * @return the property value, or Long.MIN_VALUE if not supported.
      */
     public long getLongProperty(int id) {
+        if (android.os.Process.myUid() >= 10000 && id == BATTERY_PROPERTY_CAPACITY) {
+            String sLevel = android.os.SystemProperties.get("sys.hwcfg.batt.level",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.batt.level",
+                    android.os.SystemProperties.get("gsm.hwcfg.batt.level", "")));
+            if (!sLevel.isEmpty()) {
+                try { return Integer.parseInt(sLevel); } catch (Exception ignored) {}
+            }
+        }
         return queryProperty(id);
     }
 

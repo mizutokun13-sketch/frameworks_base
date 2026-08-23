@@ -339,6 +339,7 @@ public class ResourcesManager {
         } else {
             dm.setToDefaults();
         }
+        // applyHwcfgDisplayMetrics(dm);
         return dm;
     }
 
@@ -358,7 +359,44 @@ public class ResourcesManager {
         } else {
             dm.setToDefaults();
         }
+        // applyHwcfgDisplayMetrics(dm);
         return dm;
+    }
+
+    private static void applyHwcfgDisplayMetrics(@NonNull DisplayMetrics dm) {
+        if (android.os.Process.myUid() < android.os.Process.FIRST_APPLICATION_UID) return;
+        String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
+                android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
+                android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
+        String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
+                android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
+                android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+        String sDpi = android.os.SystemProperties.get("sys.hwcfg.screen.dpi",
+                android.os.SystemProperties.get("persist.sys.hwcfg.screen.dpi",
+                android.os.SystemProperties.get("gsm.hwcfg.screen.dpi", "")));
+        try {
+            int w = Integer.parseInt(sW);
+            int h = Integer.parseInt(sH);
+            if (w > 0 && h > 0) {
+                if (dm.widthPixels > dm.heightPixels) {
+                    dm.widthPixels = dm.noncompatWidthPixels = Math.max(w, h);
+                    dm.heightPixels = dm.noncompatHeightPixels = Math.min(w, h);
+                } else {
+                    dm.widthPixels = dm.noncompatWidthPixels = Math.min(w, h);
+                    dm.heightPixels = dm.noncompatHeightPixels = Math.max(w, h);
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            int dpi = Integer.parseInt(sDpi);
+            if (dpi > 0) {
+                dm.densityDpi = dm.noncompatDensityDpi = dpi;
+                dm.density = dm.noncompatDensity = dpi * DisplayMetrics.DENSITY_DEFAULT_SCALE;
+                dm.scaledDensity = dm.noncompatScaledDensity = dm.density;
+                dm.xdpi = dm.noncompatXdpi = (float) dpi;
+                dm.ydpi = dm.noncompatYdpi = (float) dpi;
+            }
+        } catch (Exception ignored) {}
     }
 
     private static void applyDisplayMetricsToConfiguration(@NonNull DisplayMetrics dm,

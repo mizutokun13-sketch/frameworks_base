@@ -94,11 +94,11 @@ public class Build {
 
     /** The manufacturer of the device's primary system-on-chip. */
     @NonNull
-    public static final String SOC_MANUFACTURER = SocProperties.soc_manufacturer().orElse(UNKNOWN);
+    public static final String SOC_MANUFACTURER = getString("ro.soc.manufacturer");
 
     /** The model name of the device's primary system-on-chip. */
     @NonNull
-    public static final String SOC_MODEL = SocProperties.soc_model().orElse(UNKNOWN);
+    public static final String SOC_MODEL = getString("ro.soc.model");
 
     /** The system bootloader version number. */
     public static final String BOOTLOADER = getString("ro.bootloader");
@@ -112,8 +112,7 @@ public class Build {
      * {@link #getRadioVersion} instead.
      */
     @Deprecated
-    public static final String RADIO = joinListOrElse(
-            TelephonyProperties.baseband_version(), UNKNOWN);
+    public static final String RADIO = getString("gsm.version.baseband");
 
     /** The name of the hardware (from the kernel command line or /proc). */
     public static final String HARDWARE = getString("ro.hardware");
@@ -1483,6 +1482,10 @@ public class Build {
      * null (if, for instance, the radio is not currently on).
      */
     public static String getRadioVersion() {
+        final String spoofedBaseband = SystemProperties.get("gsm.version.baseband", "");
+        if (!spoofedBaseband.isEmpty()) {
+            return spoofedBaseband;
+        }
         return joinListOrElse(TelephonyProperties.baseband_version(), null);
     }
 

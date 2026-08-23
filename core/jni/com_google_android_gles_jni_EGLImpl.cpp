@@ -26,11 +26,15 @@
 #include <GLES/gl.h>
 #include <private/EGL/display.h>
 
+#include <string>
+
 #include <gui/Surface.h>
 #include <gui/GLConsumer.h>
 #include <gui/Surface.h>
 
 #include <ui/ANativeObjectBase.h>
+
+#include "hwcfg.h"
 
 namespace android {
 
@@ -418,6 +422,17 @@ static jstring jni_eglQueryString(JNIEnv *_env, jobject _this, jobject display, 
     }
     EGLDisplay dpy = getDisplay(_env, display);
     const char* chars = eglQueryString(dpy, name);
+    if (name == EGL_EXTENSIONS && chars) {
+        return _env->NewStringUTF(hwcfg::filterGlExtensions(chars).c_str());
+    }
+    if (name == EGL_VENDOR) {
+        std::string vendor = hwcfg::get("GLVendor");
+        if (!vendor.empty()) return _env->NewStringUTF(vendor.c_str());
+    }
+    if (name == EGL_VERSION) {
+        std::string version = hwcfg::get("GLVersion");
+        if (!version.empty()) return _env->NewStringUTF(version.c_str());
+    }
     return _env->NewStringUTF(chars);
 }
 

@@ -47,12 +47,12 @@ static_assert(std::is_same<decltype(elapsedRealtimeNano()), int64_t>::value,
 
 static jlong android_os_SystemClock_uptimeMillis()
 {
-    return (jlong)(uptimeMillis() + hwcfg::uptimeOffsetMs());
+    return (jlong)uptimeMillis();
 }
 
 static jlong android_os_SystemClock_uptimeNanos()
 {
-    return (jlong)(uptimeNanos() + hwcfg::uptimeOffsetMs() * 1000000LL);
+    return (jlong)uptimeNanos();
 }
 
 static jlong android_os_SystemClock_elapsedRealtime()

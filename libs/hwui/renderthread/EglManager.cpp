@@ -578,8 +578,8 @@ void EglManager::damageFrame(const Frame& frame, const SkRect& dirty) {
         EGLint rects[4];
         frame.map(dirty, rects);
         if (!eglSetDamageRegionKHR(mEglDisplay, frame.mSurface, rects, 1)) {
-            LOG_ALWAYS_FATAL("Failed to set damage region on surface %p, error=%s",
-                             (void*)frame.mSurface, eglErrorString());
+            ALOGW("Failed to set damage region on surface %p, error=%s",
+                  (void*)frame.mSurface, eglErrorString());
         }
     }
 #endif
@@ -611,8 +611,7 @@ bool EglManager::swapBuffers(const Frame& frame, const SkRect& screenDirty) {
               frame.mSurface);
         return false;
     }
-    LOG_ALWAYS_FATAL("Encountered EGL error %d %s during rendering", err, egl_error_str(err));
-    // Impossible to hit this, but the compiler doesn't know that
+    ALOGW("Encountered EGL error %d %s during rendering, skipping frame...", err, egl_error_str(err));
     return false;
 }
 

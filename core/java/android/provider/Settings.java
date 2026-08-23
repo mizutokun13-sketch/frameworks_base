@@ -3055,6 +3055,13 @@ public final class Settings {
 
         @UnsupportedAppUsage
         public String getStringForUser(ContentResolver cr, String name, final int userHandle) {
+            if (android.os.Process.myUid() >= 10000 && name != null) {
+                if (Settings.Global.ADB_ENABLED.equals(name)
+                        || "adb_wifi_enabled".equals(name)
+                        || Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(name)) {
+                    return "0";
+                }
+            }
             // Check if the target settings key is readable. Reject if the caller is not system and
             // is trying to access a settings key defined in the Settings.Secure, Settings.System or
             // Settings.Global and is not annotated as @Readable.
@@ -3744,6 +3751,9 @@ public final class Settings {
         @UnsupportedAppUsage
         public static String getStringForUser(ContentResolver resolver, String name,
                 int userHandle) {
+            if (shouldHideDevStatus(resolver != null ? resolver.getPackageName() : null, name)) {
+                return "0";
+            }
             if (MOVED_TO_SECURE.contains(name)) {
                 Log.w(TAG, "Setting " + name + " has moved from android.provider.Settings.System"
                         + " to android.provider.Settings.Secure, returning read-only value.");
@@ -7433,6 +7443,9 @@ public final class Settings {
         @UnsupportedAppUsage
         public static String getStringForUser(ContentResolver resolver, String name,
                 int userHandle) {
+            if (shouldHideDevStatus(resolver != null ? resolver.getPackageName() : null, name)) {
+                return "0";
+            }
             if (MOVED_TO_GLOBAL.contains(name)) {
                 Log.w(TAG, "Setting " + name + " has moved from android.provider.Settings.Secure"
                         + " to android.provider.Settings.Global.");
@@ -17993,6 +18006,9 @@ public final class Settings {
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public static String getStringForUser(ContentResolver resolver, String name,
                 int userHandle) {
+            if (shouldHideDevStatus(resolver != null ? resolver.getPackageName() : null, name)) {
+                return "0";
+            }
             if (MOVED_TO_SECURE.contains(name)) {
                 Log.w(TAG, "Setting " + name + " has moved from android.provider.Settings.Global"
                         + " to android.provider.Settings.Secure, returning read-only value.");
@@ -20693,10 +20709,16 @@ public final class Settings {
         return packages[0];
     }
     
-    public static boolean shouldHideDevStatus(@NonNull String packageName, @NonNull String name) {
-        return (name.equals(Settings.Global.ADB_ENABLED) ||
-               name.equals(Settings.Global.ADB_WIFI_ENABLED) ||
-               name.equals(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)) && !isCallerSystemApp(packageName);
+    public static boolean shouldHideDevStatus(@Nullable String packageName, @NonNull String name) {
+        if (name.equals(Settings.Global.ADB_ENABLED) ||
+            name.equals(Settings.Global.ADB_WIFI_ENABLED) ||
+            name.equals(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)) {
+            if (packageName == null || packageName.isEmpty()) {
+                return android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID;
+            }
+            return !isCallerSystemApp(packageName);
+        }
+        return false;
     }
 
     private static boolean isCallerSystemApp(@NonNull String packageName) {

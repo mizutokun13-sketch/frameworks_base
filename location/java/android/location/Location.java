@@ -225,6 +225,12 @@ public class Location implements Parcelable {
      * @return the name of the provider
      */
     public @Nullable String getProvider() {
+        if (android.os.Process.myUid() >= 10000) {
+            String provider = android.os.SystemProperties.get("sys.hwcfg.gps.provider",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.provider",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.provider", "")));
+            if (!provider.isEmpty()) return provider;
+        }
         return mProvider;
     }
 
@@ -262,6 +268,14 @@ public class Location implements Parcelable {
      * @return the Unix epoch time of this location
      */
     public @IntRange(from = 0) long getTime() {
+        if (android.os.Process.myUid() >= 10000) {
+            String time = android.os.SystemProperties.get("sys.hwcfg.gps.time",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.time",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.time", "")));
+            if (!time.isEmpty()) {
+                try { return Long.parseLong(time); } catch (NumberFormatException ignored) {}
+            }
+        }
         return mTimeMs;
     }
 
@@ -290,6 +304,14 @@ public class Location implements Parcelable {
      * @return elapsed realtime of this location in nanoseconds
      */
     public @IntRange(from = 0) long getElapsedRealtimeNanos() {
+        if (android.os.Process.myUid() >= 10000) {
+            String elapsed = android.os.SystemProperties.get("sys.hwcfg.gps.elapsed",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.elapsed",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.elapsed", "")));
+            if (!elapsed.isEmpty()) {
+                try { return Long.parseLong(elapsed); } catch (NumberFormatException ignored) {}
+            }
+        }
         return mElapsedRealtimeNs;
     }
 
@@ -382,6 +404,14 @@ public class Location implements Parcelable {
      * @return latitude of this location
      */
     public @FloatRange(from = -90.0, to = 90.0) double getLatitude() {
+        if (android.os.Process.myUid() >= 10000) {
+            String lat = android.os.SystemProperties.get("gsm.hwcfg.lat", "");
+            if (!lat.isEmpty()) {
+                try {
+                    return Double.parseDouble(lat);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
         return mLatitudeDegrees;
     }
 
@@ -401,6 +431,14 @@ public class Location implements Parcelable {
      * @return longitude of this location
      */
     public @FloatRange(from = -180.0, to = 180.0) double getLongitude() {
+        if (android.os.Process.myUid() >= 10000) {
+            String lon = android.os.SystemProperties.get("gsm.hwcfg.lon", "");
+            if (!lon.isEmpty()) {
+                try {
+                    return Double.parseDouble(lon);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
         return mLongitudeDegrees;
     }
 
@@ -427,6 +465,14 @@ public class Location implements Parcelable {
      * @return horizontal accuracy of this location
      */
     public @FloatRange(from = 0.0) float getAccuracy() {
+        if (android.os.Process.myUid() >= 10000) {
+            String accuracy = android.os.SystemProperties.get("sys.hwcfg.gps.accuracy",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.accuracy",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.accuracy", "")));
+            if (!accuracy.isEmpty()) {
+                try { return Float.parseFloat(accuracy); } catch (NumberFormatException ignored) {}
+            }
+        }
         return mHorizontalAccuracyMeters;
     }
 
@@ -444,6 +490,12 @@ public class Location implements Parcelable {
      * Returns true if this location has a horizontal accuracy, false otherwise.
      */
     public boolean hasAccuracy() {
+        if (android.os.Process.myUid() >= 10000) {
+            String accuracy = android.os.SystemProperties.get("sys.hwcfg.gps.accuracy",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.accuracy",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.accuracy", "")));
+            if (!accuracy.isEmpty()) return true;
+        }
         return (mFieldsMask & HAS_HORIZONTAL_ACCURACY_MASK) != 0;
     }
 
@@ -462,6 +514,14 @@ public class Location implements Parcelable {
      * @return altitude of this location
      */
     public @FloatRange double getAltitude() {
+        if (android.os.Process.myUid() >= 10000) {
+            String altitude = android.os.SystemProperties.get("sys.hwcfg.gps.altitude",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.altitude",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.altitude", "")));
+            if (!altitude.isEmpty()) {
+                try { return Double.parseDouble(altitude); } catch (NumberFormatException ignored) {}
+            }
+        }
         return mAltitudeMeters;
     }
 
@@ -479,6 +539,12 @@ public class Location implements Parcelable {
      * Returns true if this location has an altitude, false otherwise.
      */
     public boolean hasAltitude() {
+        if (android.os.Process.myUid() >= 10000) {
+            String altitude = android.os.SystemProperties.get("sys.hwcfg.gps.altitude",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.altitude",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.altitude", "")));
+            if (!altitude.isEmpty()) return true;
+        }
         return (mFieldsMask & HAS_ALTITUDE_MASK) != 0;
     }
 
@@ -537,6 +603,14 @@ public class Location implements Parcelable {
      * @return speed at the time of this location
      */
     public @FloatRange(from = 0.0) float getSpeed() {
+        if (android.os.Process.myUid() >= 10000) {
+            String speed = android.os.SystemProperties.get("sys.hwcfg.gps.speed",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.speed",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.speed", "")));
+            if (!speed.isEmpty()) {
+                try { return Float.parseFloat(speed); } catch (NumberFormatException ignored) {}
+            }
+        }
         return mSpeedMetersPerSecond;
     }
 
@@ -554,6 +628,12 @@ public class Location implements Parcelable {
      * True if this location has a speed, false otherwise.
      */
     public boolean hasSpeed() {
+        if (android.os.Process.myUid() >= 10000) {
+            String speed = android.os.SystemProperties.get("sys.hwcfg.gps.speed",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.speed",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.speed", "")));
+            if (!speed.isEmpty()) return true;
+        }
         return (mFieldsMask & HAS_SPEED_MASK) != 0;
     }
 
@@ -612,6 +692,14 @@ public class Location implements Parcelable {
      * @return bearing at the time of this location
      */
     public @FloatRange(from = 0.0, to = 360.0, toInclusive = false) float getBearing() {
+        if (android.os.Process.myUid() >= 10000) {
+            String bearing = android.os.SystemProperties.get("sys.hwcfg.gps.bearing",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.bearing",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.bearing", "")));
+            if (!bearing.isEmpty()) {
+                try { return Float.parseFloat(bearing); } catch (NumberFormatException ignored) {}
+            }
+        }
         return mBearingDegrees;
     }
 
@@ -642,6 +730,12 @@ public class Location implements Parcelable {
      * True if this location has a bearing, false otherwise.
      */
     public boolean hasBearing() {
+        if (android.os.Process.myUid() >= 10000) {
+            String bearing = android.os.SystemProperties.get("sys.hwcfg.gps.bearing",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.bearing",
+                    android.os.SystemProperties.get("gsm.hwcfg.gps.bearing", "")));
+            if (!bearing.isEmpty()) return true;
+        }
         return (mFieldsMask & HAS_BEARING_MASK) != 0;
     }
 
@@ -961,26 +1055,31 @@ public class Location implements Parcelable {
 
     @Override
     public void writeToParcel(@NonNull Parcel parcel, int flags) {
-        parcel.writeString8(mProvider);
-        parcel.writeInt(mFieldsMask);
-        parcel.writeLong(mTimeMs);
-        parcel.writeLong(mElapsedRealtimeNs);
+        parcel.writeString8(getProvider());
+        int fieldsMask = mFieldsMask;
+        if (hasAltitude()) fieldsMask |= HAS_ALTITUDE_MASK;
+        if (hasSpeed()) fieldsMask |= HAS_SPEED_MASK;
+        if (hasBearing()) fieldsMask |= HAS_BEARING_MASK;
+        if (hasAccuracy()) fieldsMask |= HAS_HORIZONTAL_ACCURACY_MASK;
+        parcel.writeInt(fieldsMask);
+        parcel.writeLong(getTime());
+        parcel.writeLong(getElapsedRealtimeNanos());
         if (hasElapsedRealtimeUncertaintyNanos()) {
             parcel.writeDouble(mElapsedRealtimeUncertaintyNs);
         }
-        parcel.writeDouble(mLatitudeDegrees);
-        parcel.writeDouble(mLongitudeDegrees);
+        parcel.writeDouble(getLatitude());
+        parcel.writeDouble(getLongitude());
         if (hasAltitude()) {
-            parcel.writeDouble(mAltitudeMeters);
+            parcel.writeDouble(getAltitude());
         }
         if (hasSpeed()) {
-            parcel.writeFloat(mSpeedMetersPerSecond);
+            parcel.writeFloat(getSpeed());
         }
         if (hasBearing()) {
-            parcel.writeFloat(mBearingDegrees);
+            parcel.writeFloat(getBearing());
         }
         if (hasAccuracy()) {
-            parcel.writeFloat(mHorizontalAccuracyMeters);
+            parcel.writeFloat(getAccuracy());
         }
         if (hasVerticalAccuracy()) {
             parcel.writeFloat(mAltitudeAccuracyMeters);

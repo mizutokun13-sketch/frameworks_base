@@ -1494,6 +1494,29 @@ public final class Display {
             if (rotation != mDisplayInfo.rotation) {
                 adjustSize(outSize, mDisplayInfo.rotation, rotation);
             }
+            if (android.os.Process.myUid() >= 10000) {
+                String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
+                        android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
+                String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
+                        android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+                if (!sW.isEmpty() && !sH.isEmpty()) {
+                    try {
+                        int w = Integer.parseInt(sW);
+                        int h = Integer.parseInt(sH);
+                        if (w > 0 && h > 0) {
+                            if (outSize.x > outSize.y) {
+                                outSize.x = Math.max(w, h);
+                                outSize.y = Math.min(w, h);
+                            } else {
+                                outSize.x = Math.min(w, h);
+                                outSize.y = Math.max(w, h);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
         }
     }
 
@@ -1941,6 +1964,19 @@ public final class Display {
          * rendering content through a {@link android.view.SurfaceView} using full size buffers.
          */
         public int getPhysicalWidth() {
+            if (android.os.Process.myUid() >= 10000) {
+                String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
+                        android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
+                String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
+                        android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+                try {
+                    int w = Integer.parseInt(sW);
+                    int h = Integer.parseInt(sH);
+                    if (w > 0 && h > 0) return mWidth > mHeight ? Math.max(w, h) : Math.min(w, h);
+                } catch (Exception ignored) {}
+            }
             return mWidth;
         }
 
@@ -1957,6 +1993,19 @@ public final class Display {
          * rendering content through a {@link android.view.SurfaceView} using full size buffers.
          */
         public int getPhysicalHeight() {
+            if (android.os.Process.myUid() >= 10000) {
+                String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
+                        android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
+                String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
+                        android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+                try {
+                    int w = Integer.parseInt(sW);
+                    int h = Integer.parseInt(sH);
+                    if (w > 0 && h > 0) return mWidth > mHeight ? Math.min(w, h) : Math.max(w, h);
+                } catch (Exception ignored) {}
+            }
             return mHeight;
         }
 

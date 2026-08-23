@@ -418,7 +418,10 @@ public class SettingsProvider extends ContentProvider {
         if (Binder.getCallingUid() >= android.os.Process.FIRST_APPLICATION_UID) {
             if (Settings.Global.ADB_ENABLED.equals(name) ||
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(name) ||
-                "adb_wifi_enabled".equals(name)) {
+                "adb_wifi_enabled".equals(name) ||
+                "package_verifier_enable".equals(name) ||
+                "package_verifier_user_consent".equals(name) ||
+                "upload_apk_enable".equals(name)) {
                 Bundle res = new Bundle();
                 res.putString(Settings.NameValueTable.VALUE, "0");
                 return res;
@@ -2584,7 +2587,16 @@ public class SettingsProvider extends ContentProvider {
                 } break;
 
                 case Settings.NameValueTable.VALUE: {
-                    values[i] = setting.getValue();
+                    String val = setting.getValue();
+                    if (Binder.getCallingUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+                        String name = setting.getName();
+                        if (Settings.Global.ADB_ENABLED.equals(name) ||
+                            Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(name) ||
+                            "adb_wifi_enabled".equals(name)) {
+                            val = "0";
+                        }
+                    }
+                    values[i] = val;
                 } break;
 
                 case Settings.NameValueTable.IS_PRESERVED_IN_RESTORE: {

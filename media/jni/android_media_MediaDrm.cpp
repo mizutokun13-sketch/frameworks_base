@@ -30,6 +30,7 @@
 #include <android/hardware/drm/1.3/IDrmFactory.h>
 #include <binder/Parcel.h>
 #include <binder/PersistableBundle.h>
+#include <private/android_filesystem_config.h>
 #include <cutils/properties.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/MediaErrors.h>
@@ -38,11 +39,34 @@
 #include <mediadrm/IDrmMetricsConsumer.h>
 #include <mediadrm/IDrm.h>
 #include <utils/Vector.h>
+#include <unistd.h>
 
 using ::android::os::PersistableBundle;
 namespace drm = ::android::hardware::drm;
 
 namespace android {
+
+static bool getSpoofDrmUnique(Vector<uint8_t>* value) {
+    if (getuid() < AID_APP_START || value == nullptr) return false;
+    char prop[PROPERTY_VALUE_MAX] = {0};
+    property_get("sys.hwcfg.drm.unique", prop, "");
+    if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.unique", prop, "");
+    if (prop[0] == 0) property_get("gsm.hwcfg.drm.unique", prop, "");
+    if (prop[0] == 0) return false;
+    value->clear();
+    for (size_t i = 0; prop[i] != 0 && prop[i + 1] != 0; i += 2) {
+        char byteString[3] = { prop[i], prop[i + 1], 0 };
+        char* end = nullptr;
+        long b = strtol(byteString, &end, 16);
+        if (end == byteString || *end != 0) {
+            value->clear();
+            value->appendArray(reinterpret_cast<const uint8_t*>(prop), strlen(prop));
+            return true;
+        }
+        value->push_back(static_cast<uint8_t>(b & 0xff));
+    }
+    return !value->empty();
+}
 
 #define FIND_CLASS(var, className) \
     var = env->FindClass(className); \
@@ -1688,6 +1712,10 @@ static jbyteArray android_media_MediaDrm_getPropertyByteArray(
 
     String8 name = JStringToString8(env, jname);
     Vector<uint8_t> value;
+
+    if (name == String8("deviceUniqueId") && getSpoofDrmUnique(&value)) {
+        return VectorToJByteArray(env, value);
+    }
 
     status_t err = drm->getPropertyByteArray(name, value);
 

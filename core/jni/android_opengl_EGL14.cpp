@@ -29,11 +29,15 @@
 #include <assert.h>
 #include <EGL/egl.h>
 
+#include <string>
+
 #include <gui/Surface.h>
 #include <gui/GLConsumer.h>
 #include <gui/Surface.h>
 
 #include <ui/ANativeObjectBase.h>
+
+#include "hwcfg.h"
 
 static jclass egldisplayClass;
 static jclass eglcontextClass;
@@ -263,6 +267,17 @@ android_eglQueryString__Landroind_opengl_EGLDisplay_2I
         (EGLDisplay)fromEGLHandle(_env, egldisplayGetHandleID, dpy),
         (EGLint)name
     );
+    if (name == EGL_EXTENSIONS && chars) {
+        return _env->NewStringUTF(hwcfg::filterGlExtensions(chars).c_str());
+    }
+    if (name == EGL_VENDOR) {
+        std::string vendor = hwcfg::get("GLVendor");
+        if (!vendor.empty()) return _env->NewStringUTF(vendor.c_str());
+    }
+    if (name == EGL_VERSION) {
+        std::string version = hwcfg::get("GLVersion");
+        if (!version.empty()) return _env->NewStringUTF(version.c_str());
+    }
     return _env->NewStringUTF(chars);
 }
 /* EGLBoolean eglGetConfigs ( EGLDisplay dpy, EGLConfig *configs, EGLint config_size, EGLint *num_config ) */
