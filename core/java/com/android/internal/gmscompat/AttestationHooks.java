@@ -393,6 +393,18 @@ public final class AttestationHooks {
         (byte)0xc3, (byte)0x83, (byte)0xa9, (byte)0x2e, (byte)0xfb, (byte)0x5c, (byte)0xf6, (byte)0x62, (byte)0xf5, (byte)0x27, (byte)0x52, (byte)0x17, (byte)0xbe, (byte)0x63
     };
 
+    private static final byte[] EC_ATTEST_KEY_PKCS8 = new byte[] {
+        (byte)0x30, (byte)0x81, (byte)0x87, (byte)0x02, (byte)0x01, (byte)0x00, (byte)0x30, (byte)0x13, (byte)0x06, (byte)0x07, (byte)0x2a, (byte)0x86, (byte)0x48, (byte)0xce, (byte)0x3d, (byte)0x02,
+        (byte)0x01, (byte)0x06, (byte)0x08, (byte)0x2a, (byte)0x86, (byte)0x48, (byte)0xce, (byte)0x3d, (byte)0x03, (byte)0x01, (byte)0x07, (byte)0x04, (byte)0x6d, (byte)0x30, (byte)0x6b, (byte)0x02,
+        (byte)0x01, (byte)0x01, (byte)0x04, (byte)0x20, (byte)0x21, (byte)0xe0, (byte)0x86, (byte)0x43, (byte)0x2a, (byte)0x15, (byte)0x19, (byte)0x84, (byte)0x59, (byte)0xcf, (byte)0x36, (byte)0x3a,
+        (byte)0x50, (byte)0xfc, (byte)0x14, (byte)0xc9, (byte)0xda, (byte)0xad, (byte)0xf9, (byte)0x35, (byte)0xf5, (byte)0x27, (byte)0xc2, (byte)0xdf, (byte)0xd7, (byte)0x1e, (byte)0x4d, (byte)0x6d,
+        (byte)0xbc, (byte)0x42, (byte)0xe5, (byte)0x44, (byte)0xa1, (byte)0x44, (byte)0x03, (byte)0x42, (byte)0x00, (byte)0x04, (byte)0xeb, (byte)0x9e, (byte)0x79, (byte)0xf8, (byte)0x42, (byte)0x63,
+        (byte)0x59, (byte)0xac, (byte)0xcb, (byte)0x2a, (byte)0x91, (byte)0x4c, (byte)0x89, (byte)0x86, (byte)0xcc, (byte)0x70, (byte)0xad, (byte)0x90, (byte)0x66, (byte)0x93, (byte)0x82, (byte)0xa9,
+        (byte)0x73, (byte)0x26, (byte)0x13, (byte)0xfe, (byte)0xac, (byte)0xcb, (byte)0xf8, (byte)0x21, (byte)0x27, (byte)0x4c, (byte)0x21, (byte)0x74, (byte)0x97, (byte)0x4a, (byte)0x2a, (byte)0xfe,
+        (byte)0xa5, (byte)0xb9, (byte)0x4d, (byte)0x7f, (byte)0x66, (byte)0xd4, (byte)0xe0, (byte)0x65, (byte)0x10, (byte)0x66, (byte)0x35, (byte)0xbc, (byte)0x53, (byte)0xb7, (byte)0xa0, (byte)0xa3,
+        (byte)0xa6, (byte)0x71, (byte)0x58, (byte)0x3e, (byte)0xdb, (byte)0x3e, (byte)0x11, (byte)0xae, (byte)0x10, (byte)0x14
+    };
+
     private static X509Certificate generateSynthesizedAttestationCert(X509Certificate leaf) throws Exception {
         com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector rootOfTrust = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
         rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[32]));
@@ -401,12 +413,12 @@ public final class AttestationHooks {
         rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[32]));
 
         com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector teeEnforced = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 704, new com.android.internal.org.bouncycastle.asn1.DERSequence(rootOfTrust)));
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 705, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(130000)));
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 706, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(202608)));
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 1, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(3))); // KM_ALGORITHM_EC
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 2, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(256))); // KM_KEY_SIZE
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 10, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(1))); // KM_EC_CURVE_P_256
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 1, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(3))); // KM_ALGORITHM_EC
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 2, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(256))); // KM_KEY_SIZE
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 10, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(1))); // KM_EC_CURVE_P_256
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 704, new com.android.internal.org.bouncycastle.asn1.DERSequence(rootOfTrust)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 705, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(130000)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 706, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(202608)));
 
         com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector swEnforced = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
 
@@ -423,21 +435,25 @@ public final class AttestationHooks {
 
         byte[] extensionBytes = new com.android.internal.org.bouncycastle.asn1.DERSequence(seq).getEncoded();
 
-        java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("EC");
-        kpg.initialize(256);
-        java.security.KeyPair tempKp = kpg.generateKeyPair();
+        java.security.KeyFactory keyFactory = java.security.KeyFactory.getInstance("EC");
+        java.security.spec.PKCS8EncodedKeySpec keySpec = new java.security.spec.PKCS8EncodedKeySpec(EC_ATTEST_KEY_PKCS8);
+        java.security.PrivateKey intermediateKey = keyFactory.generatePrivate(keySpec);
+
+        java.security.cert.CertificateFactory certFactory = java.security.cert.CertificateFactory.getInstance("X.509");
+        X509Certificate intermediateCert = (X509Certificate) certFactory.generateCertificate(
+                new java.io.ByteArrayInputStream(EC_ATTEST_CERT));
 
         com.android.internal.org.bouncycastle.x509.X509V3CertificateGenerator certGen = new com.android.internal.org.bouncycastle.x509.X509V3CertificateGenerator();
         certGen.setSerialNumber(leaf.getSerialNumber() != null ? leaf.getSerialNumber() : java.math.BigInteger.valueOf(System.currentTimeMillis()));
-        certGen.setIssuerDN(new com.android.internal.org.bouncycastle.jce.X509Principal("CN=Android Software Attestation Key, O=Google, Inc., C=US"));
+        certGen.setIssuerDN(intermediateCert.getSubjectX500Principal());
         certGen.setNotBefore(leaf.getNotBefore() != null ? leaf.getNotBefore() : new java.util.Date(System.currentTimeMillis() - 86400000L));
         certGen.setNotAfter(leaf.getNotAfter() != null ? leaf.getNotAfter() : new java.util.Date(System.currentTimeMillis() + 315360000000L));
-        certGen.setSubjectDN(new com.android.internal.org.bouncycastle.jce.X509Principal(leaf.getSubjectDN() != null ? leaf.getSubjectDN().getName() : "CN=Android Keystore Key"));
-        certGen.setPublicKey(leaf.getPublicKey() != null ? leaf.getPublicKey() : tempKp.getPublic());
+        certGen.setSubjectDN(leaf.getSubjectDN() != null ? new com.android.internal.org.bouncycastle.jce.X509Principal(leaf.getSubjectDN().getName()) : new com.android.internal.org.bouncycastle.jce.X509Principal("CN=Android Keystore Key"));
+        certGen.setPublicKey(leaf.getPublicKey());
         certGen.setSignatureAlgorithm("SHA256withECDSA");
         certGen.addExtension("1.3.6.1.4.1.11129.2.1.17", false, extensionBytes);
 
-        return certGen.generate(tempKp.getPrivate());
+        return certGen.generate(intermediateKey);
     }
 
     private static String readFromFile(File file) {
