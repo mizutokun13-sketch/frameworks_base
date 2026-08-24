@@ -21,46 +21,35 @@ import android.app.Application;
 import android.content.Context;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Environment;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Log;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Iterator;
 
 /** @hide */
 public final class AttestationHooks {
     private static final String TAG = "AttestationHooks";
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
     private static final String PACKAGE_GMS = "com.google.android.gms";
     private static final String PACKAGE_FINSKY = "com.android.vending";
     private static final String PACKAGE_GSF = "com.google.android.gsf";
     private static final String PROCESS_UNSTABLE = "com.google.android.gms.unstable";
-
-    // ---------------------------------------------------------------------------------
-    // BỘ HỒ SƠ CERTIFIED GOOGLE PIXEL 5 (ANDROID 13 STOCK - CTS APPROVED PASS 100%)
-    // ---------------------------------------------------------------------------------
-    private static final Map<String, Object> sPixel5Props = new HashMap<>();
-    static {
-        sPixel5Props.put("BRAND", "google");
-        sPixel5Props.put("MANUFACTURER", "Google");
-        sPixel5Props.put("DEVICE", "redfin");
-        sPixel5Props.put("PRODUCT", "redfin");
-        sPixel5Props.put("MODEL", "Pixel 5");
-        sPixel5Props.put("ID", "TQ3A.230901.001");
-        sPixel5Props.put("FINGERPRINT", "google/redfin/redfin:13/TQ3A.230901.001/10750766:user/release-keys");
-        sPixel5Props.put("TYPE", "user");
-        sPixel5Props.put("TAGS", "release-keys");
-    }
+    private static final String DATA_FILE = "gms_certified_props.json";
 
     private static volatile boolean sIsGms = false;
-    private static volatile String sProcessName;
+    private static volatile boolean sIsUnstable = false;
 
     private AttestationHooks() {}
 
@@ -75,29 +64,24 @@ public final class AttestationHooks {
 
         if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(processName)) return;
 
+        final boolean spoofGms = SystemProperties.getBoolean("persist.sys.spoof.gms", true);
+
         // =========================================================================
         // NHÁNH 1: DÀNH RIÊNG CHO GMS & CH PLAY (PLAY INTEGRITY CERTIFICATION)
         // =========================================================================
         if (PACKAGE_GMS.equals(packageName) || PACKAGE_FINSKY.equals(packageName) || PACKAGE_GSF.equals(packageName)) {
             sIsGms = true;
-            sProcessName = processName;
 
-            // 1. Tiến trình DroidGuard kiểm tra tính toàn vẹn (SafetyNet / Play Integrity)
             if (PROCESS_UNSTABLE.equals(processName) || processName.contains("unstable")) {
-                if (DEBUG) Log.d(TAG, "[" + processName + "] Ép Fallback Software Basic Attestation");
-                // Đặt FIRST_API_LEVEL = 30 (Android 11) để Google Server không đòi hỏi StrongBox KeyMint phần cứng
-                setVersionField("DEVICE_INITIAL_SDK_INT", 30);
+                sIsUnstable = true;
+                if (spoofGms) {
+                    setGmsCertifiedProps();
+                }
             }
 
-            // 2. Gán toàn bộ Fingerprint Certified của Pixel 5 cho GMS
-            if (DEBUG) Log.d(TAG, "[" + processName + "] Gán Profile Certified Pixel 5 cho GMS");
-            for (Map.Entry<String, Object> entry : sPixel5Props.entrySet()) {
-                setBuildField(entry.getKey(), String.valueOf(entry.getValue()));
+            if (spoofGms) {
+                setBuildField("TIME", String.valueOf(System.currentTimeMillis()));
             }
-
-            // Ngày vá bảo mật khớp với bản build TQ3A.230901.001 của Pixel 5
-            setVersionField("SECURITY_PATCH", "2023-09-05");
-            setBuildField("TIME", String.valueOf(System.currentTimeMillis()));
             return;
         }
 
@@ -106,6 +90,49 @@ public final class AttestationHooks {
         // =========================================================================
         if (!"com.wantphone.wantspoof".equals(packageName)) {
             spoofAppBuildFields(context);
+        }
+    }
+
+    private static void setGmsCertifiedProps() {
+        File dataFile = new File(Environment.getDataSystemDirectory(), DATA_FILE);
+        String savedProps = readFromFile(dataFile);
+
+        if (TextUtils.isEmpty(savedProps)) {
+            File sysFile = new File("/system/etc/gms_certified_props.json");
+            if (sysFile.exists()) {
+                savedProps = readFromFile(sysFile);
+            }
+        }
+
+        if (TextUtils.isEmpty(savedProps)) {
+            File vendorFile = new File("/vendor/etc/gms_certified_props.json");
+            if (vendorFile.exists()) {
+                savedProps = readFromFile(vendorFile);
+            }
+        }
+
+        if (TextUtils.isEmpty(savedProps)) {
+            setVersionField("DEVICE_INITIAL_SDK_INT", 30);
+            return;
+        }
+
+        try {
+            JSONObject parsedProps = new JSONObject(savedProps);
+            Iterator<String> keys = parsedProps.keys();
+
+            while (keys.hasNext()) {
+                String key = keys.next();
+                String value = parsedProps.getString(key);
+                if (key.startsWith("VERSION.")) {
+                    setVersionField(key.substring(8), value);
+                } else if (key.startsWith("VERSION:")) {
+                    setVersionField(key.substring(8), value);
+                } else {
+                    setBuildField(key, value);
+                }
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Lỗi phân giải JSON certified props", e);
         }
     }
 
@@ -197,11 +224,15 @@ public final class AttestationHooks {
         return gmsUid == callingUid;
     }
 
+    private static boolean isCallerSafetyNet() {
+        return Arrays.stream(Thread.currentThread().getStackTrace())
+                .anyMatch(elem -> elem.getClassName().contains("DroidGuard")
+                        || elem.getClassName().contains("AttestationVerificationService"));
+    }
+
     public static void onEngineGetCertificateChain() {
-        // Chặn Hardware Key Attestation trong GMS unstable process
-        // Ép Google Play Integrity đánh giá bằng Basic/Software Attestation
-        if (sIsGms) {
-            if (DEBUG) Log.d(TAG, "[" + (sProcessName != null ? sProcessName : "GMS") + "] Chặn Hardware KeyMint -> Ép Basic Attestation");
+        boolean spoofKeystore = SystemProperties.getBoolean("persist.sys.spoof.keystore", true);
+        if (sIsGms && sIsUnstable && spoofKeystore && isCallerSafetyNet()) {
             throw new UnsupportedOperationException();
         }
     }
@@ -210,7 +241,13 @@ public final class AttestationHooks {
         try {
             Field field = Build.class.getDeclaredField(key);
             field.setAccessible(true);
-            field.set(null, value);
+            if (field.getType().equals(Long.TYPE)) {
+                field.set(null, Long.parseLong(value));
+            } else if (field.getType().equals(Integer.TYPE)) {
+                field.set(null, Integer.parseInt(value));
+            } else {
+                field.set(null, value);
+            }
             field.setAccessible(false);
         } catch (Exception e) {
             Log.e(TAG, "Lỗi gán Build." + key + ": " + e.getMessage());
@@ -221,7 +258,11 @@ public final class AttestationHooks {
         try {
             Field field = Build.VERSION.class.getDeclaredField(key);
             field.setAccessible(true);
-            field.set(null, value);
+            if (field.getType().equals(Integer.TYPE) && value instanceof String) {
+                field.set(null, Integer.parseInt((String) value));
+            } else {
+                field.set(null, value);
+            }
             field.setAccessible(false);
         } catch (Exception e) {
             Log.e(TAG, "Lỗi gán Build.VERSION." + key + ": " + e.getMessage());
