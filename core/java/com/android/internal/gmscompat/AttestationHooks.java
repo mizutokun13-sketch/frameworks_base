@@ -412,24 +412,38 @@ public final class AttestationHooks {
         rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(0));
         rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[32]));
 
+        com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector purposeSet = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
+        purposeSet.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(2));
+        purposeSet.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(3));
+
+        com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector digestSet = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
+        digestSet.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(4));
+
         com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector teeEnforced = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 1, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(3))); // KM_ALGORITHM_EC
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 2, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(256))); // KM_KEY_SIZE
-        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 10, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(1))); // KM_EC_CURVE_P_256
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 1, new com.android.internal.org.bouncycastle.asn1.DERSet(purposeSet)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 2, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(3)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 3, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(256)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 5, new com.android.internal.org.bouncycastle.asn1.DERSet(digestSet)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 10, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(1)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 503, com.android.internal.org.bouncycastle.asn1.DERNull.INSTANCE));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 701, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(System.currentTimeMillis())));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 702, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(0)));
         teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 704, new com.android.internal.org.bouncycastle.asn1.DERSequence(rootOfTrust)));
         teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 705, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(130000)));
         teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 706, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(202608)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 718, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(20260805)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(true, 719, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(20260805)));
 
         com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector swEnforced = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
 
         com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector seq = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
-        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(200)); // attestationVersion
-        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(1)); // attestationSecurityLevel (1 = TrustedEnvironment)
-        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(200)); // keymasterVersion
-        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(1)); // keymasterSecurityLevel (1 = TrustedEnvironment)
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(200));
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(1));
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(200));
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(1));
         byte[] challengeBytes = "attestation_challenge".getBytes("UTF-8");
-        seq.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(challengeBytes)); // attestationChallenge
-        seq.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[0])); // uniqueId
+        seq.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(challengeBytes));
+        seq.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[0]));
         seq.add(new com.android.internal.org.bouncycastle.asn1.DERSequence(swEnforced));
         seq.add(new com.android.internal.org.bouncycastle.asn1.DERSequence(teeEnforced));
 
