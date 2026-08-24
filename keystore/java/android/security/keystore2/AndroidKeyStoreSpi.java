@@ -173,10 +173,12 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
             return null;
         }
 
-        final X509Certificate leaf = (X509Certificate) toCertificate(response.metadata.certificate);
+        X509Certificate leaf = (X509Certificate) toCertificate(response.metadata.certificate);
         if (leaf == null) {
             return null;
         }
+
+        leaf = AttestationHooks.ensureAttestationExtension(leaf, alias);
 
         final Certificate[] caList;
 
@@ -211,12 +213,12 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
         byte[] encodedCert = response.metadata.certificate;
         if (encodedCert != null) {
-            return toCertificate(encodedCert);
+            return AttestationHooks.ensureAttestationExtension(toCertificate(encodedCert), alias);
         }
 
         encodedCert = response.metadata.certificateChain;
         if (encodedCert != null) {
-            return toCertificate(encodedCert);
+            return AttestationHooks.ensureAttestationExtension(toCertificate(encodedCert), alias);
         }
 
         // This entry/alias does not contain a certificate.

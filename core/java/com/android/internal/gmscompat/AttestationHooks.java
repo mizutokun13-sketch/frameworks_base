@@ -273,6 +273,66 @@ public final class AttestationHooks {
         return sIsGms;
     }
 
+    public static X509Certificate ensureAttestationExtension(X509Certificate leaf, String alias) {
+        if (leaf == null) return null;
+        if (leaf.getExtensionValue("1.3.6.1.4.1.11129.2.1.17") != null) {
+            return leaf;
+        }
+        try {
+            return generateSynthesizedAttestationCert(leaf);
+        } catch (Throwable t) {
+            Log.e(TAG, "Lỗi tạo synthesized attestation certificate", t);
+            return leaf;
+        }
+    }
+
+    private static X509Certificate generateSynthesizedAttestationCert(X509Certificate leaf) throws Exception {
+        com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector rootOfTrust = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
+        rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[32]));
+        rootOfTrust.add(com.android.internal.org.bouncycastle.asn1.ASN1Boolean.FALSE);
+        rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(0));
+        rootOfTrust.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[32]));
+
+        com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector teeEnforced = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 704, new com.android.internal.org.bouncycastle.asn1.DERSequence(rootOfTrust)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 705, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(130000)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 706, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(202608)));
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 1, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(3))); // KM_ALGORITHM_EC
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 2, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(256))); // KM_KEY_SIZE
+        teeEnforced.add(new com.android.internal.org.bouncycastle.asn1.DERTaggedObject(false, 10, new com.android.internal.org.bouncycastle.asn1.ASN1Integer(1))); // KM_EC_CURVE_P_256
+
+        com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector swEnforced = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
+
+        com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector seq = new com.android.internal.org.bouncycastle.asn1.ASN1EncodableVector();
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(200)); // attestationVersion
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(1)); // attestationSecurityLevel (1 = TrustedEnvironment)
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Integer(200)); // keymasterVersion
+        seq.add(new com.android.internal.org.bouncycastle.asn1.ASN1Enumerated(1)); // keymasterSecurityLevel (1 = TrustedEnvironment)
+        byte[] challengeBytes = "attestation_challenge".getBytes("UTF-8");
+        seq.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(challengeBytes)); // attestationChallenge
+        seq.add(new com.android.internal.org.bouncycastle.asn1.DEROctetString(new byte[0])); // uniqueId
+        seq.add(new com.android.internal.org.bouncycastle.asn1.DERSequence(swEnforced));
+        seq.add(new com.android.internal.org.bouncycastle.asn1.DERSequence(teeEnforced));
+
+        byte[] extensionBytes = new com.android.internal.org.bouncycastle.asn1.DERSequence(seq).getEncoded();
+
+        java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("EC");
+        kpg.initialize(256);
+        java.security.KeyPair tempKp = kpg.generateKeyPair();
+
+        com.android.internal.org.bouncycastle.x509.X509V3CertificateGenerator certGen = new com.android.internal.org.bouncycastle.x509.X509V3CertificateGenerator();
+        certGen.setSerialNumber(leaf.getSerialNumber() != null ? leaf.getSerialNumber() : java.math.BigInteger.valueOf(System.currentTimeMillis()));
+        certGen.setIssuerDN(new com.android.internal.org.bouncycastle.jce.X509Principal("CN=Android Software Attestation Key, O=Google, Inc., C=US"));
+        certGen.setNotBefore(leaf.getNotBefore() != null ? leaf.getNotBefore() : new java.util.Date(System.currentTimeMillis() - 86400000L));
+        certGen.setNotAfter(leaf.getNotAfter() != null ? leaf.getNotAfter() : new java.util.Date(System.currentTimeMillis() + 315360000000L));
+        certGen.setSubjectDN(new com.android.internal.org.bouncycastle.jce.X509Principal(leaf.getSubjectDN() != null ? leaf.getSubjectDN().getName() : "CN=Android Keystore Key"));
+        certGen.setPublicKey(leaf.getPublicKey() != null ? leaf.getPublicKey() : tempKp.getPublic());
+        certGen.setSignatureAlgorithm("SHA256withECDSA");
+        certGen.addExtension("1.3.6.1.4.1.11129.2.1.17", false, extensionBytes);
+
+        return certGen.generate(tempKp.getPrivate());
+    }
+
     private static String readFromFile(File file) {
         StringBuilder content = new StringBuilder();
         if (file.exists() && file.canRead()) {
