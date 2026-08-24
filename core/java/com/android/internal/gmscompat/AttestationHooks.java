@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Iterator;
 
