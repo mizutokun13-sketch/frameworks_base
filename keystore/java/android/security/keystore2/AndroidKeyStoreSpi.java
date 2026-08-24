@@ -180,25 +180,7 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
         leaf = AttestationHooks.ensureAttestationExtension(leaf, alias);
 
-        final Certificate[] caList;
-
-        final byte[] caBytes = response.metadata.certificateChain;
-
-        if (caBytes != null) {
-            final Collection<X509Certificate> caChain = toCertificates(caBytes);
-
-            caList = new Certificate[caChain.size() + 1];
-
-            final Iterator<X509Certificate> it = caChain.iterator();
-            int i = 1;
-            while (it.hasNext()) {
-                caList[i++] = it.next();
-            }
-            caList[0] = leaf;
-            return caList;
-        } else {
-            return AttestationHooks.ensureCertificateChain(leaf);
-        }
+        return AttestationHooks.ensureCertificateChain(leaf);
     }
 
     @Override
