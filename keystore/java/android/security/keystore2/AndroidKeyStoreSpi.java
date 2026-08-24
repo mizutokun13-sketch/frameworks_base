@@ -194,13 +194,11 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
             while (it.hasNext()) {
                 caList[i++] = it.next();
             }
+            caList[0] = leaf;
+            return caList;
         } else {
-            caList = new Certificate[1];
+            return AttestationHooks.ensureCertificateChain(leaf);
         }
-
-        caList[0] = leaf;
-
-        return caList;
     }
 
     @Override
