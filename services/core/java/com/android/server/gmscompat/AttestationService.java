@@ -43,6 +43,11 @@ public final class AttestationService extends SystemService {
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
     private static final boolean SPOOF_GMS =
             SystemProperties.getBoolean("persist.sys.spoof.gms", true);
+    // Auto-fetch from upstream overwrites /data/system/gms_certified_props.json every boot,
+    // which would fight the props baked into the ROM (and the KernelSU PIF module).
+    // Off by default; enable with `setprop persist.sys.spoof.fetch true`.
+    private static final boolean FETCH_PROPS =
+            SystemProperties.getBoolean("persist.sys.spoof.fetch", false);
 
     private final Context mContext;
     private final File mDataFile;
@@ -61,6 +66,7 @@ public final class AttestationService extends SystemService {
     @Override
     public void onBootPhase(int phase) {
         if (SPOOF_GMS
+                && FETCH_PROPS
                 && isAppInstalled("com.google.android.gms")
                 && phase == PHASE_BOOT_COMPLETED) {
             Log.i(TAG, "Scheduling the service");

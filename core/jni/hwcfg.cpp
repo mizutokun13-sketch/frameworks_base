@@ -44,6 +44,12 @@ bool is_enabled() {
     if (g_pid != pid) { g_pid = pid; g_state = 0; g_cache.clear(); }  // re-check per fork
     if (g_state) return g_state == 1;
 
+    // 0. System processes (system_server, com.android.systemui, etc.) must NEVER be spoofed
+    if (getuid() < AID_APP_START && getuid() != 0) {
+        g_state = 2; // disabled
+        return false;
+    }
+
     // 1. Always enabled for 3rd party apps
     if (getuid() >= AID_APP_START) {
         g_state = 1;

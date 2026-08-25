@@ -708,60 +708,17 @@ public final class DisplayInfo implements Parcelable {
 
     private void getMetricsWithSize(DisplayMetrics outMetrics, CompatibilityInfo compatInfo,
             Configuration configuration, int width, int height) {
-        int spoofDpi = logicalDensityDpi;
-        float spoofXdpi = physicalXDpi;
-        float spoofYdpi = physicalYDpi;
-        if (android.os.Process.myUid() >= 10000) {
-            String sDpi = android.os.SystemProperties.get("sys.hwcfg.screen.dpi",
-                    android.os.SystemProperties.get("persist.sys.hwcfg.screen.dpi",
-                    android.os.SystemProperties.get("gsm.hwcfg.screen.dpi", "")));
-            if (!sDpi.isEmpty()) {
-                try {
-                    int d = Integer.parseInt(sDpi);
-                    if (d > 0) {
-                        spoofDpi = d;
-                        spoofXdpi = (float) d;
-                        spoofYdpi = (float) d;
-                    }
-                } catch (Exception ignored) {}
-            }
-        }
-
-        outMetrics.densityDpi = outMetrics.noncompatDensityDpi = spoofDpi;
+        outMetrics.densityDpi = outMetrics.noncompatDensityDpi = logicalDensityDpi;
         outMetrics.density = outMetrics.noncompatDensity =
-                spoofDpi * DisplayMetrics.DENSITY_DEFAULT_SCALE;
+                logicalDensityDpi * DisplayMetrics.DENSITY_DEFAULT_SCALE;
         outMetrics.scaledDensity = outMetrics.noncompatScaledDensity = outMetrics.density;
-        outMetrics.xdpi = outMetrics.noncompatXdpi = spoofXdpi;
-        outMetrics.ydpi = outMetrics.noncompatYdpi = spoofYdpi;
+        outMetrics.xdpi = outMetrics.noncompatXdpi = physicalXDpi;
+        outMetrics.ydpi = outMetrics.noncompatYdpi = physicalYDpi;
 
         final Rect appBounds = configuration != null
                 ? configuration.windowConfiguration.getAppBounds() : null;
         width = appBounds != null ? appBounds.width() : width;
         height = appBounds != null ? appBounds.height() : height;
-
-        if (android.os.Process.myUid() >= 10000) {
-            String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
-                    android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
-                    android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
-            String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
-                    android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
-                    android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
-            if (!sW.isEmpty() && !sH.isEmpty()) {
-                try {
-                    int w = Integer.parseInt(sW);
-                    int h = Integer.parseInt(sH);
-                    if (w > 0 && h > 0) {
-                        if (width > height) {
-                            width = Math.max(w, h);
-                            height = Math.min(w, h);
-                        } else {
-                            width = Math.min(w, h);
-                            height = Math.max(w, h);
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-        }
 
         outMetrics.noncompatWidthPixels  = outMetrics.widthPixels = width;
         outMetrics.noncompatHeightPixels = outMetrics.heightPixels = height;

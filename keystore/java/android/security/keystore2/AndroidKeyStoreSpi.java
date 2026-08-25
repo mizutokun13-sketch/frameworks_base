@@ -42,7 +42,6 @@ import android.system.keystore2.ResponseCode;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.gmscompat.AttestationHooks;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -165,22 +164,33 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
-        AttestationHooks.onEngineGetCertificateChain();
-
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null || response.metadata.certificate == null) {
             return null;
         }
 
-        X509Certificate leaf = (X509Certificate) toCertificate(response.metadata.certificate);
+        final X509Certificate leaf = toCertificate(response.metadata.certificate);
         if (leaf == null) {
             return null;
         }
 
-        leaf = AttestationHooks.ensureAttestationExtension(leaf, alias);
+        final Certificate[] caList;
+        final byte[] caBytes = response.metadata.certificateChain;
 
-        return AttestationHooks.ensureCertificateChain(leaf);
+        if (caBytes != null) {
+            final Collection<X509Certificate> caChain = toCertificates(caBytes);
+            caList = new Certificate[caChain.size() + 1];
+            int i = 1;
+            for (X509Certificate cert : caChain) {
+                caList[i++] = cert;
+            }
+        } else {
+            caList = new Certificate[1];
+        }
+        caList[0] = leaf;
+
+        return caList;
     }
 
     @Override
@@ -193,12 +203,12 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
         byte[] encodedCert = response.metadata.certificate;
         if (encodedCert != null) {
-            return AttestationHooks.ensureAttestationExtension(toCertificate(encodedCert), alias);
+            return toCertificate(encodedCert);
         }
 
         encodedCert = response.metadata.certificateChain;
         if (encodedCert != null) {
-            return AttestationHooks.ensureAttestationExtension(toCertificate(encodedCert), alias);
+            return toCertificate(encodedCert);
         }
 
         // This entry/alias does not contain a certificate.

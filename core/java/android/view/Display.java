@@ -1579,6 +1579,7 @@ public final class Display {
                 }
                 // Skip adjusting by fixed rotation, since if it is necessary, the configuration
                 // should already reflect the expected rotation.
+                applyHwcfgRealMetrics(outMetrics);
                 return;
             }
             mDisplayInfo.getLogicalMetrics(outMetrics,
@@ -1587,6 +1588,48 @@ public final class Display {
             if (rotation != mDisplayInfo.rotation) {
                 adjustMetrics(outMetrics, mDisplayInfo.rotation, rotation);
             }
+            applyHwcfgRealMetrics(outMetrics);
+        }
+    }
+
+    private static void applyHwcfgRealMetrics(DisplayMetrics outMetrics) {
+        if (outMetrics == null || android.os.Process.myUid() < android.os.Process.FIRST_APPLICATION_UID) return;
+        String sDpi = android.os.SystemProperties.get("sys.hwcfg.screen.dpi",
+                android.os.SystemProperties.get("persist.sys.hwcfg.screen.dpi",
+                android.os.SystemProperties.get("gsm.hwcfg.screen.dpi", "")));
+        String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
+                android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
+                android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
+        String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
+                android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
+                android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+
+        if (!sDpi.isEmpty()) {
+            try {
+                int d = Integer.parseInt(sDpi);
+                if (d > 0) {
+                    outMetrics.densityDpi = outMetrics.noncompatDensityDpi = d;
+                    outMetrics.density = outMetrics.noncompatDensity = d * DisplayMetrics.DENSITY_DEFAULT_SCALE;
+                    outMetrics.scaledDensity = outMetrics.noncompatScaledDensity = outMetrics.density;
+                    outMetrics.xdpi = outMetrics.noncompatXdpi = (float) d;
+                    outMetrics.ydpi = outMetrics.noncompatYdpi = (float) d;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (!sW.isEmpty() && !sH.isEmpty()) {
+            try {
+                int w = Integer.parseInt(sW);
+                int h = Integer.parseInt(sH);
+                if (w > 0 && h > 0) {
+                    if (outMetrics.widthPixels > outMetrics.heightPixels) {
+                        outMetrics.widthPixels = outMetrics.noncompatWidthPixels = Math.max(w, h);
+                        outMetrics.heightPixels = outMetrics.noncompatHeightPixels = Math.min(w, h);
+                    } else {
+                        outMetrics.widthPixels = outMetrics.noncompatWidthPixels = Math.min(w, h);
+                        outMetrics.heightPixels = outMetrics.noncompatHeightPixels = Math.max(w, h);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
     }
 
