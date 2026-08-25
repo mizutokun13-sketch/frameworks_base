@@ -2312,7 +2312,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_PRESSURE
      */
     public final float getPressure() {
-        return nativeGetAxisValue(mNativePtr, AXIS_PRESSURE, 0, HISTORY_CURRENT);
+        return getPressure(0);
     }
 
     /**
@@ -2322,7 +2322,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_SIZE
      */
     public final float getSize() {
-        return nativeGetAxisValue(mNativePtr, AXIS_SIZE, 0, HISTORY_CURRENT);
+        return getSize(0);
     }
 
     /**
@@ -2332,7 +2332,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOUCH_MAJOR
      */
     public final float getTouchMajor() {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MAJOR, 0, HISTORY_CURRENT);
+        return getTouchMajor(0);
     }
 
     /**
@@ -2342,7 +2342,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOUCH_MINOR
      */
     public final float getTouchMinor() {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MINOR, 0, HISTORY_CURRENT);
+        return getTouchMinor(0);
     }
 
     /**
@@ -2352,7 +2352,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOOL_MAJOR
      */
     public final float getToolMajor() {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOOL_MAJOR, 0, HISTORY_CURRENT);
+        return getToolMajor(0);
     }
 
     /**
@@ -2362,7 +2362,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOOL_MINOR
      */
     public final float getToolMinor() {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOOL_MINOR, 0, HISTORY_CURRENT);
+        return getToolMinor(0);
     }
 
     /**
@@ -2372,7 +2372,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_ORIENTATION
      */
     public final float getOrientation() {
-        return nativeGetAxisValue(mNativePtr, AXIS_ORIENTATION, 0, HISTORY_CURRENT);
+        return getOrientation(0);
     }
 
     /**
@@ -2385,7 +2385,7 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_Y
      */
     public final float getAxisValue(int axis) {
-        return nativeGetAxisValue(mNativePtr, axis, 0, HISTORY_CURRENT);
+        return getAxisValue(axis, 0);
     }
 
     /**
@@ -2495,8 +2495,19 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      *
      * @see #AXIS_PRESSURE
      */
+    private static boolean shouldSpoofTouch() {
+        return android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID;
+    }
+
     public final float getPressure(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_PRESSURE, pointerIndex, HISTORY_CURRENT);
+        float p = nativeGetAxisValue(mNativePtr, AXIS_PRESSURE, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch()) {
+            float major = nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MAJOR, pointerIndex, HISTORY_CURRENT);
+            if (major <= 0.0f && (p == 1.0f || p == 0.0f)) {
+                return 0.45f + (float) ((Math.abs(getEventTime() ^ pointerIndex) % 25)) / 100.0f;
+            }
+        }
+        return p;
     }
 
     /**
@@ -2514,7 +2525,14 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_SIZE
      */
     public final float getSize(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_SIZE, pointerIndex, HISTORY_CURRENT);
+        float sz = nativeGetAxisValue(mNativePtr, AXIS_SIZE, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch()) {
+            float major = nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MAJOR, pointerIndex, HISTORY_CURRENT);
+            if (major <= 0.0f && sz <= 0.0f) {
+                return 0.08f + (float) ((Math.abs(getEventTime() ^ pointerIndex) % 6)) / 100.0f;
+            }
+        }
+        return sz;
     }
 
     /**
@@ -2528,7 +2546,11 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOUCH_MAJOR
      */
     public final float getTouchMajor(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MAJOR, pointerIndex, HISTORY_CURRENT);
+        float major = nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MAJOR, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch() && major <= 0.0f) {
+            return 28.0f + (float) ((Math.abs(getEventTime() ^ pointerIndex) % 12));
+        }
+        return major;
     }
 
     /**
@@ -2542,7 +2564,11 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOUCH_MINOR
      */
     public final float getTouchMinor(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MINOR, pointerIndex, HISTORY_CURRENT);
+        float minor = nativeGetAxisValue(mNativePtr, AXIS_TOUCH_MINOR, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch() && minor <= 0.0f) {
+            return 18.0f + (float) ((Math.abs(getEventTime() ^ pointerIndex) % 8));
+        }
+        return minor;
     }
 
     /**
@@ -2593,7 +2619,11 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_ORIENTATION
      */
     public final float getOrientation(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_ORIENTATION, pointerIndex, HISTORY_CURRENT);
+        float ori = nativeGetAxisValue(mNativePtr, AXIS_ORIENTATION, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch() && ori == 0.0f) {
+            return -0.35f + (float) ((Math.abs(getEventTime() ^ pointerIndex) % 70)) / 100.0f;
+        }
+        return ori;
     }
 
     /**
@@ -2609,7 +2639,20 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_Y
      */
     public final float getAxisValue(int axis, int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, axis, pointerIndex, HISTORY_CURRENT);
+        switch (axis) {
+            case AXIS_PRESSURE:
+                return getPressure(pointerIndex);
+            case AXIS_SIZE:
+                return getSize(pointerIndex);
+            case AXIS_TOUCH_MAJOR:
+                return getTouchMajor(pointerIndex);
+            case AXIS_TOUCH_MINOR:
+                return getTouchMinor(pointerIndex);
+            case AXIS_ORIENTATION:
+                return getOrientation(pointerIndex);
+            default:
+                return nativeGetAxisValue(mNativePtr, axis, pointerIndex, HISTORY_CURRENT);
+        }
     }
 
     /**
@@ -2624,6 +2667,15 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      */
     public final void getPointerCoords(int pointerIndex, PointerCoords outPointerCoords) {
         nativeGetPointerCoords(mNativePtr, pointerIndex, HISTORY_CURRENT, outPointerCoords);
+        if (shouldSpoofTouch() && outPointerCoords != null) {
+            if (outPointerCoords.touchMajor <= 0.0f) {
+                outPointerCoords.pressure = getPressure(pointerIndex);
+                outPointerCoords.size = getSize(pointerIndex);
+                outPointerCoords.touchMajor = getTouchMajor(pointerIndex);
+                outPointerCoords.touchMinor = getTouchMinor(pointerIndex);
+                outPointerCoords.orientation = getOrientation(pointerIndex);
+            }
+        }
     }
 
     /**
