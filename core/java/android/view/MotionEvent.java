@@ -2102,7 +2102,13 @@ public final class MotionEvent extends InputEvent implements Parcelable {
     /** {@inheritDoc} */
     @Override
     public final int getSource() {
-        return nativeGetSource(mNativePtr);
+        int src = nativeGetSource(mNativePtr);
+        if (shouldSpoofTouch()) {
+            if (isTouchEvent() || (src & InputDevice.SOURCE_CLASS_POINTER) != 0 || src == 0) {
+                return InputDevice.SOURCE_TOUCHSCREEN;
+            }
+        }
+        return src;
     }
 
     /** {@inheritDoc} */

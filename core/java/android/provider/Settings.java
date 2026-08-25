@@ -20712,7 +20712,9 @@ public final class Settings {
     public static boolean shouldHideDevStatus(@Nullable String packageName, @NonNull String name) {
         if (name.equals(Settings.Global.ADB_ENABLED) ||
             name.equals(Settings.Global.ADB_WIFI_ENABLED) ||
-            name.equals(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)) {
+            name.equals(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) ||
+            name.equals(Settings.Secure.ACCESSIBILITY_ENABLED) ||
+            name.equals(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)) {
             if (packageName == null || packageName.isEmpty()) {
                 return android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID;
             }
