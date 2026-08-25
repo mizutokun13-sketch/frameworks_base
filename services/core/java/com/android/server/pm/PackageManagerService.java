@@ -4514,6 +4514,12 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
             case PACKAGE_STARTABILITY_NOT_SYSTEM:
                 throw new SecurityException("Package " + packageName + " not a system app!");
             case PACKAGE_STARTABILITY_FROZEN:
+                if ("com.google.android.gms".equals(packageName)
+                        || "com.google.android.gsf".equals(packageName)
+                        || "com.android.vending".equals(packageName)) {
+                    // Do not throw SecurityException for GMS/GSF so calling apps don't get killed
+                    break;
+                }
                 throw new SecurityException("Package " + packageName + " is currently frozen!");
             case PACKAGE_STARTABILITY_DIRECT_BOOT_UNSUPPORTED:
                 throw new SecurityException("Package " + packageName + " is not encryption aware!");
