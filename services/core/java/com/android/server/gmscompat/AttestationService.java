@@ -42,12 +42,12 @@ public final class AttestationService extends SystemService {
 
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
     private static final boolean SPOOF_GMS =
-            SystemProperties.getBoolean("persist.sys.spoof.gms", true);
+            SystemProperties.getBoolean("persist.sys.hwcfg.gms", true);
     // Auto-fetch from upstream overwrites /data/system/gms_certified_props.json every boot,
     // which would fight the props baked into the ROM (and the KernelSU PIF module).
-    // Off by default; enable with `setprop persist.sys.spoof.fetch true`.
+    // Off by default; enable with `setprop persist.sys.hwcfg.fetch true`.
     private static final boolean FETCH_PROPS =
-            SystemProperties.getBoolean("persist.sys.spoof.fetch", false);
+            SystemProperties.getBoolean("persist.sys.hwcfg.fetch", false);
 
     private final Context mContext;
     private final File mDataFile;

@@ -63,7 +63,7 @@ public final class AttestationHooks {
 
         if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(processName)) return;
 
-        final boolean spoofGms = SystemProperties.getBoolean("persist.sys.spoof.gms", true);
+        final boolean spoofGms = SystemProperties.getBoolean("persist.sys.hwcfg.gms", true);
 
         // =========================================================================
         // NHÁNH 1: DÀNH RIÊNG CHO GMS & CH PLAY (PLAY INTEGRITY CERTIFICATION)
