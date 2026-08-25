@@ -215,8 +215,6 @@ public final class AttestationHooks {
         File[] searchDirs = new File[] {
             new File("/data/vendor/hwcfg/Utils"),
             new File("/data/vendor/hwcfg/active/Utils"),
-            new File("/sdcard/WantSpoof/Utils"),
-            new File("/storage/emulated/0/WantSpoof/Utils"),
             new File("/data/data/com.wantphone.wantspoof/files/Utils"),
             new File("/data/local/tmp/Utils"),
             new File("/system/Utils")

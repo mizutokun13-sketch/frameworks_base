@@ -235,7 +235,6 @@ std::string get(const char* name) {
     // 3. /data/data/com.wantphone.wantspoof/files/Utils/
     // 4. /data/local/tmp/Utils/
     // 5. /system/Utils/
-    // 6. /sdcard/WantSpoof/Utils/
     std::string path = "/data/vendor/hwcfg/Utils/";
     path += name;
     std::string v = readFile(path.c_str());
@@ -265,24 +264,10 @@ std::string get(const char* name) {
     }
 
     if (v.empty()) {
-        path = "/sdcard/WantSpoof/Utils/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
-        path = "/storage/emulated/0/WantSpoof/Utils/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
         if (const char* alias = aliasField(name)) {
             const char* dirs[] = {"/data/vendor/hwcfg/Utils/", "/data/vendor/hwcfg/active/Utils/",
                                   "/data/data/com.wantphone.wantspoof/files/Utils/",
-                                  "/data/local/tmp/Utils/", "/system/Utils/",
-                                  "/sdcard/WantSpoof/Utils/",
-                                  "/storage/emulated/0/WantSpoof/Utils/"};
+                                  "/data/local/tmp/Utils/", "/system/Utils/"};
             for (const char* dir : dirs) {
                 path = dir;
                 path += alias;
