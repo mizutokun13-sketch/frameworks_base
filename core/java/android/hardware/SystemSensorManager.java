@@ -980,6 +980,26 @@ public class SystemSensorManager extends SensorManager {
             t.accuracy = inAccuracy;
             t.sensor = sensor;
 
+            if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID) {
+                int type = sensor.getType();
+                double timeSec = timestamp / 1_000_000_000.0;
+                if (type == Sensor.TYPE_ACCELEROMETER || type == Sensor.TYPE_ACCELEROMETER_UNCALIBRATED) {
+                    float jitterX = (float) (Math.sin(timeSec * 50.0) * 0.008 + Math.cos(timeSec * 31.0) * 0.004);
+                    float jitterY = (float) (Math.cos(timeSec * 45.0) * 0.008 + Math.sin(timeSec * 29.0) * 0.004);
+                    float jitterZ = (float) (Math.sin(timeSec * 40.0) * 0.006);
+                    t.values[0] += jitterX;
+                    t.values[1] += jitterY;
+                    t.values[2] += jitterZ;
+                } else if (type == Sensor.TYPE_GYROSCOPE || type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
+                    float jitterGyroX = (float) (Math.sin(timeSec * 48.0) * 0.0015);
+                    float jitterGyroY = (float) (Math.cos(timeSec * 42.0) * 0.0015);
+                    float jitterGyroZ = (float) (Math.sin(timeSec * 36.0) * 0.0010);
+                    t.values[0] += jitterGyroX;
+                    t.values[1] += jitterGyroY;
+                    t.values[2] += jitterGyroZ;
+                }
+            }
+
             // call onAccuracyChanged() only if the value changes
             final int accuracy = mSensorAccuracies.get(handle);
             if (t.accuracy >= 0 && accuracy != t.accuracy) {
