@@ -111,14 +111,17 @@ public final class AttestationHooks {
         if (TextUtils.isEmpty(savedProps)) {
             setBuildField("BRAND", "google");
             setBuildField("MANUFACTURER", "Google");
-            setBuildField("DEVICE", "caiman");
-            setBuildField("PRODUCT", "caiman");
-            setBuildField("MODEL", "Pixel 9 Pro");
-            setBuildField("FINGERPRINT", "google/caiman_beta/caiman:CANARY/ZP11.260717.006/16004061:user/release-keys");
+            setBuildField("DEVICE", "redfin");
+            setBuildField("PRODUCT", "redfin");
+            setBuildField("MODEL", "Pixel 5");
+            setBuildField("FINGERPRINT", "google/redfin/redfin:14/UP1A.231105.001.B2/11082266:user/release-keys");
+            setBuildField("ID", "UP1A.231105.001.B2");
             setBuildField("TYPE", "user");
             setBuildField("TAGS", "release-keys");
-            setVersionField("DEVICE_INITIAL_SDK_INT", 30);
-            setVersionField("SECURITY_PATCH", "2026-08-05");
+            setVersionField("INCREMENTAL", "11082266");
+            setVersionField("RELEASE", "14");
+            setVersionField("DEVICE_INITIAL_SDK_INT", 25);
+            setVersionField("SECURITY_PATCH", "2023-11-05");
             return;
         }
 
