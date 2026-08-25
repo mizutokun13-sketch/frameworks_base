@@ -405,7 +405,11 @@ public class Location implements Parcelable {
      */
     public @FloatRange(from = -90.0, to = 90.0) double getLatitude() {
         if (android.os.Process.myUid() >= 10000) {
-            String lat = android.os.SystemProperties.get("gsm.hwcfg.lat", "");
+            String lat = android.os.SystemProperties.get("sys.hwcfg.gps.lat",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.lat",
+                    android.os.SystemProperties.get("sys.hwcfg.lat",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.lat",
+                    android.os.SystemProperties.get("gsm.hwcfg.lat", "")))));
             if (!lat.isEmpty()) {
                 try {
                     return Double.parseDouble(lat);
@@ -432,7 +436,11 @@ public class Location implements Parcelable {
      */
     public @FloatRange(from = -180.0, to = 180.0) double getLongitude() {
         if (android.os.Process.myUid() >= 10000) {
-            String lon = android.os.SystemProperties.get("gsm.hwcfg.lon", "");
+            String lon = android.os.SystemProperties.get("sys.hwcfg.gps.lon",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.lon",
+                    android.os.SystemProperties.get("sys.hwcfg.lon",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.lon",
+                    android.os.SystemProperties.get("gsm.hwcfg.lon", "")))));
             if (!lon.isEmpty()) {
                 try {
                     return Double.parseDouble(lon);

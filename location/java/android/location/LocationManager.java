@@ -885,8 +885,21 @@ public class LocationManager {
                 "invalid null last location request");
 
         try {
-            return mService.getLastLocation(provider, lastLocationRequest,
+            Location loc = mService.getLastLocation(provider, lastLocationRequest,
                     mContext.getPackageName(), mContext.getAttributionTag());
+            if (loc == null && android.os.Process.myUid() >= 10000) {
+                String lat = android.os.SystemProperties.get("sys.hwcfg.gps.lat",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.gps.lat",
+                        android.os.SystemProperties.get("sys.hwcfg.lat",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.lat",
+                        android.os.SystemProperties.get("gsm.hwcfg.lat", "")))));
+                if (!lat.isEmpty()) {
+                    loc = new Location(provider);
+                    loc.setTime(System.currentTimeMillis());
+                    loc.setElapsedRealtimeNanos(android.os.SystemClock.elapsedRealtimeNanos());
+                }
+            }
+            return loc;
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
