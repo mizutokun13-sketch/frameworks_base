@@ -792,11 +792,6 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             throws ProviderException, IllegalArgumentException, DeviceIdAttestationException {
         byte[] challenge = mSpec.getAttestationChallenge();
 
-        // Legacy Exynos hardware attestation guard: prevent TEE broken detection for third-party apps
-        if (Process.myUid() >= Process.FIRST_APPLICATION_UID) {
-            challenge = null;
-        }
-
         if (challenge != null) {
             params.add(KeyStore2ParameterUtils.makeBytes(
                     KeymasterDefs.KM_TAG_ATTESTATION_CHALLENGE, challenge
