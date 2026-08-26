@@ -435,11 +435,25 @@ public class SettingsProvider extends ContentProvider {
             }
 
             case Settings.CALL_METHOD_GET_GLOBAL: {
+                if (UserHandle.getAppId(Binder.getCallingUid()) >= Process.FIRST_APPLICATION_UID) {
+                    if (Settings.Global.ADB_ENABLED.equals(name) ||
+                        "adb_wifi_enabled".equals(name) ||
+                        Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(name)) {
+                        return Bundle.forPair(Settings.NameValueTable.VALUE, "0");
+                    }
+                }
                 Setting setting = getGlobalSetting(name);
                 return packageValueForCallResult(setting, isTrackingGeneration(args));
             }
 
             case Settings.CALL_METHOD_GET_SECURE: {
+                if (UserHandle.getAppId(Binder.getCallingUid()) >= Process.FIRST_APPLICATION_UID) {
+                    if (Settings.Global.ADB_ENABLED.equals(name) ||
+                        "adb_wifi_enabled".equals(name) ||
+                        Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(name)) {
+                        return Bundle.forPair(Settings.NameValueTable.VALUE, "0");
+                    }
+                }
                 Setting setting = getSecureSetting(name, requestingUserId);
                 return packageValueForCallResult(setting, isTrackingGeneration(args));
             }
@@ -626,6 +640,15 @@ public class SettingsProvider extends ContentProvider {
         switch (args.table) {
             case TABLE_GLOBAL: {
                 if (args.name != null) {
+                    if (UserHandle.getAppId(Binder.getCallingUid()) >= Process.FIRST_APPLICATION_UID) {
+                        if (Settings.Global.ADB_ENABLED.equals(args.name) ||
+                            "adb_wifi_enabled".equals(args.name) ||
+                            Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(args.name)) {
+                            MatrixCursor cursor = new MatrixCursor(normalizedProjection, 1);
+                            cursor.addRow(new Object[] { args.name, "0" });
+                            return cursor;
+                        }
+                    }
                     Setting setting = getGlobalSetting(args.name);
                     return packageSettingForQuery(setting, normalizedProjection);
                 } else {
@@ -636,6 +659,15 @@ public class SettingsProvider extends ContentProvider {
             case TABLE_SECURE: {
                 final int userId = UserHandle.getCallingUserId();
                 if (args.name != null) {
+                    if (UserHandle.getAppId(Binder.getCallingUid()) >= Process.FIRST_APPLICATION_UID) {
+                        if (Settings.Global.ADB_ENABLED.equals(args.name) ||
+                            "adb_wifi_enabled".equals(args.name) ||
+                            Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.equals(args.name)) {
+                            MatrixCursor cursor = new MatrixCursor(normalizedProjection, 1);
+                            cursor.addRow(new Object[] { args.name, "0" });
+                            return cursor;
+                        }
+                    }
                     Setting setting = getSecureSetting(args.name, userId);
                     return packageSettingForQuery(setting, normalizedProjection);
                 } else {
