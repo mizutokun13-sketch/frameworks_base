@@ -317,7 +317,17 @@ public final class ServiceManager {
     @UnsupportedAppUsage
     public static String[] listServices() {
         try {
-            return getIServiceManager().listServices(IServiceManager.DUMP_FLAG_PRIORITY_ALL);
+            String[] services = getIServiceManager().listServices(IServiceManager.DUMP_FLAG_PRIORITY_ALL);
+            if (services != null && android.os.Process.myUid() >= 10000) {
+                java.util.ArrayList<String> filtered = new java.util.ArrayList<>();
+                for (String s : services) {
+                    if (s != null && !s.contains("lineage")) {
+                        filtered.add(s);
+                    }
+                }
+                return filtered.toArray(new String[0]);
+            }
+            return services;
         } catch (RemoteException e) {
             Log.e(TAG, "error in listServices", e);
             return null;

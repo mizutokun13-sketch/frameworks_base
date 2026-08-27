@@ -139,7 +139,7 @@ static const PropPair kPropMap[] = {
     {"ro.vendor.build.date","builddate"},{"ro.vendor.build.date.utc","builddateutc"},
     {"ro.build.version.security_patch","securitypatch"},
     {"ro.vendor.build.security_patch","securitypatch"},{"ro.derp.version","displayid"},
-    {"ro.modversion","displayid"},{"gsm.hwcfg.lat","lat"},{"gsm.hwcfg.lon","lon"},
+    {"gsm.hwcfg.lat","lat"},{"gsm.hwcfg.lon","lon"},
     {"gsm.hwcfg.gps.accuracy","gpsAccuracy"},{"gsm.hwcfg.gps.altitude","gpsAltitude"},
     {"gsm.hwcfg.gps.provider","gpsProvider"},{"gsm.hwcfg.gps.speed","gpsSpeed"},
     {"gsm.hwcfg.gps.bearing","gpsBearing"},{"gsm.hwcfg.gps.time","gpsTime"},
@@ -169,6 +169,7 @@ static const PropPair kPropMap[] = {
     {"sys.hwcfg.screen.w","screenW"},{"sys.hwcfg.screen.h","screenH"},
     {"sys.hwcfg.screen.dpi","screenDpi"},{"persist.sys.hwcfg.screen.w","screenW"},
     {"persist.sys.hwcfg.screen.h","screenH"},{"persist.sys.hwcfg.screen.dpi","screenDpi"},
+    {"ro.runtime.firstboot","firstboot"},
 };
 
 const char* aliasField(const char* name) {
@@ -182,18 +183,44 @@ const char* aliasField(const char* name) {
     if (!strcmp(name, "csciso")) return "CountryCode";
     if (!strcmp(name, "productcode")) return "product_code";
     if (!strcmp(name, "product_code")) return "productcode";
+    if (!strcmp(name, "firstboot")) return "first_boot";
+    if (!strcmp(name, "first_boot")) return "firstboot";
+    if (!strcmp(name, "realtime")) return "uptime";
+    if (!strcmp(name, "uptime")) return "realtime";
+    if (!strcmp(name, "builddateutc")) return "build_date_utc";
+    if (!strcmp(name, "build_date_utc")) return "builddateutc";
+    if (!strcmp(name, "builddate")) return "build_date";
+    if (!strcmp(name, "build_date")) return "builddate";
     return nullptr;
+}
+
+static void ensure_atfork_registered() {
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+        pthread_atfork(
+            []() { g_lock.lock(); },
+            []() { g_lock.unlock(); },
+            []() {
+                g_lock.unlock();
+                g_pid = getpid();
+                g_state = 0;
+                g_cache.clear();
+            }
+        );
+    });
 }
 
 }  // namespace
 
 bool enabled() {
+    ensure_atfork_registered();
     std::lock_guard<std::mutex> lk(g_lock);
     return is_enabled();
 }
 
 std::string get(const char* name) {
     if (!name || !*name) return {};
+    ensure_atfork_registered();
     std::lock_guard<std::mutex> lk(g_lock);
     if (!is_enabled()) return {};
 
@@ -337,8 +364,7 @@ std::string lookupProp(const char* key) {
         std::string bid = get("buildid");
         return bid.empty() ? get("id") : bid;
     }
-    if (!strcmp(key, "ro.build.display.id") || !strcmp(key, "ro.derp.version") ||
-        !strcmp(key, "ro.modversion")) {
+    if (!strcmp(key, "ro.build.display.id") || !strcmp(key, "ro.derp.version")) {
         std::string d = get("displayid");
         if (!d.empty()) return d;
         d = get("display");
@@ -352,6 +378,21 @@ std::string lookupProp(const char* key) {
     if (!strcmp(key, "gsm.version.baseband") || !strcmp(key, "ro.boot.baseband") ||
         !strcmp(key, "ro.baseband")) {
         return get("baseband");
+    }
+    if (!strcmp(key, "ro.build.description")) {
+        std::string desc = get("description");
+        if (!desc.empty()) return desc;
+        std::string prod = get("name");
+        if (prod.empty()) prod = get("product");
+        if (prod.empty()) prod = get("device");
+        std::string rel = get("release");
+        if (rel.empty()) rel = "13";
+        std::string bid = get("buildid");
+        if (bid.empty()) bid = get("id");
+        std::string inc = get("incremental");
+        if (!prod.empty() && !bid.empty()) {
+            return prod + "-user " + rel + " " + bid + " " + inc + " release-keys";
+        }
     }
 
     if ((getuid() / AID_APP_START) >= 1) {   // hide ADB/debug state and spoof crypto for apps only
@@ -396,6 +437,9 @@ std::string filterGlExtensions(const char* real) {
 long long uptimeOffsetMs() {
     if ((getuid() / AID_APP_START) < 1) return 0;
     std::string v = get("realtime");
+    if (v.empty()) v = get("uptime");
+    if (v.empty()) v = get("elapsed");
+    if (v.empty()) v = get("boottime");
     if (v.empty()) return 0;
     long long ms = strtoll(v.c_str(), nullptr, 10);
     return ms < 0 ? 0 : ms;
