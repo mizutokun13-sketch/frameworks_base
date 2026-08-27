@@ -164,6 +164,24 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
+        String currentPkg = android.app.ActivityThread.currentPackageName();
+        boolean isGms = "com.google.android.gms".equals(currentPkg) ||
+                        "com.google.android.gms.unstable".equals(currentPkg) ||
+                        "com.android.vending".equals(currentPkg);
+
+        if (isGms) {
+            Certificate[] emulatedChain = com.android.internal.gmscompat.KeyboxProvider.getEmulatedChain(alias);
+            if (emulatedChain != null) {
+                Log.i(TAG, "[KEYSTORE TRACE] Returning emulated Keybox certificate chain (len=" + emulatedChain.length + ") for alias=" + alias);
+                return emulatedChain;
+            }
+
+            if (com.android.internal.gmscompat.AttestationHooks.onEngineGetCertificateChain()) {
+                Log.w(TAG, "[KEYSTORE TRACE] THROWING UnsupportedOperationException to force software fallback for " + alias);
+                throw new UnsupportedOperationException("Attestation disabled for GMS/Play Integrity");
+            }
+        }
+
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null || response.metadata.certificate == null) {
@@ -195,6 +213,18 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate engineGetCertificate(String alias) {
+        String currentPkg = android.app.ActivityThread.currentPackageName();
+        boolean isGms = "com.google.android.gms".equals(currentPkg) ||
+                        "com.google.android.gms.unstable".equals(currentPkg) ||
+                        "com.android.vending".equals(currentPkg);
+
+        if (isGms) {
+            Certificate[] emulatedChain = com.android.internal.gmscompat.KeyboxProvider.getEmulatedChain(alias);
+            if (emulatedChain != null && emulatedChain.length > 0) {
+                return emulatedChain[0];
+            }
+        }
+
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null) {

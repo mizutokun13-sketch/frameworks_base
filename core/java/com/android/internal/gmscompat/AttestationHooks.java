@@ -79,6 +79,9 @@ public final class AttestationHooks {
                 setGmsCertifiedProps();
                 setBuildField("TIME", String.valueOf(System.currentTimeMillis()));
             }
+            Log.w("GmsAttestTrace", "[INIT GMS] pkg=" + packageName + " proc=" + processName + " spoofGms=" + spoofGms
+                    + " MODEL=" + Build.MODEL + " FINGERPRINT=" + Build.FINGERPRINT
+                    + " FIRST_API=" + Build.VERSION.DEVICE_INITIAL_SDK_INT);
             return;
         }
 
@@ -109,19 +112,26 @@ public final class AttestationHooks {
         }
 
         if (TextUtils.isEmpty(savedProps)) {
+            File tmpFile = new File("/data/local/tmp/gms_certified_props.json");
+            if (tmpFile.exists()) {
+                savedProps = readFromFile(tmpFile);
+            }
+        }
+
+        if (TextUtils.isEmpty(savedProps)) {
             setBuildField("BRAND", "google");
             setBuildField("MANUFACTURER", "Google");
-            setBuildField("DEVICE", "redfin");
-            setBuildField("PRODUCT", "redfin");
-            setBuildField("MODEL", "Pixel 5");
-            setBuildField("FINGERPRINT", "google/redfin/redfin:14/UP1A.231105.001.B2/11082266:user/release-keys");
-            setBuildField("ID", "UP1A.231105.001.B2");
+            setBuildField("DEVICE", "panther");
+            setBuildField("PRODUCT", "panther");
+            setBuildField("MODEL", "Pixel 7");
+            setBuildField("FINGERPRINT", "google/panther/panther:15/AP4A.250605.005/12854468:user/release-keys");
+            setBuildField("ID", "AP4A.250605.005");
             setBuildField("TYPE", "user");
             setBuildField("TAGS", "release-keys");
-            setVersionField("INCREMENTAL", "11082266");
-            setVersionField("RELEASE", "14");
-            setVersionField("DEVICE_INITIAL_SDK_INT", 25);
-            setVersionField("SECURITY_PATCH", "2023-11-05");
+            setVersionField("INCREMENTAL", "12854468");
+            setVersionField("RELEASE", "15");
+            setVersionField("DEVICE_INITIAL_SDK_INT", 33);
+            setVersionField("SECURITY_PATCH", "2025-06-05");
             return;
         }
 
@@ -136,6 +146,10 @@ public final class AttestationHooks {
                     setVersionField(key.substring(8), value);
                 } else if (key.startsWith("VERSION:")) {
                     setVersionField(key.substring(8), value);
+                } else if ("RELEASE".equalsIgnoreCase(key) || "INCREMENTAL".equalsIgnoreCase(key)
+                        || "SECURITY_PATCH".equalsIgnoreCase(key) || "DEVICE_INITIAL_SDK_INT".equalsIgnoreCase(key)
+                        || "SDK_INT".equalsIgnoreCase(key) || "PREVIEW_SDK_INT".equalsIgnoreCase(key)) {
+                    setVersionField(key, value);
                 } else {
                     setBuildField(key, value);
                 }
@@ -148,13 +162,44 @@ public final class AttestationHooks {
     /**
      * Gán Build Fields động từ file / persist / sys.hwcfg cho các app thông thường
      */
+    /**
+     * Gán Build Fields động từ profile thống nhất (/data/vendor/hwcfg/profile.json hoặc sys.hwcfg)
+     * Nếu không có cấu hình tùy biến -> Giữ nguyên giá trị mặc định của hệ thống ROM.
+     */
     private static void spoofAppBuildFields(Context context) {
+        // 1. Đọc profile JSON thống nhất nếu có
+        File unifiedProfile = new File("/data/vendor/hwcfg/profile.json");
+        if (unifiedProfile.exists()) {
+            String jsonContent = readFromFile(unifiedProfile);
+            if (!TextUtils.isEmpty(jsonContent)) {
+                try {
+                    JSONObject obj = new JSONObject(jsonContent);
+                    Iterator<String> keys = obj.keys();
+                    while (keys.hasNext()) {
+                        String k = keys.next();
+                        String v = obj.optString(k, "");
+                        if (TextUtils.isEmpty(v)) continue;
+
+                        if ("SECURITY_PATCH".equalsIgnoreCase(k) || "RELEASE".equalsIgnoreCase(k)
+                                || "INCREMENTAL".equalsIgnoreCase(k) || "SDK_INT".equalsIgnoreCase(k)) {
+                            setVersionField(k.toUpperCase(), v);
+                        } else {
+                            setBuildField(k.toUpperCase(), v);
+                        }
+                    }
+                    return; // Đã nạp thành công từ unified profile
+                } catch (Exception e) {
+                    Log.e(TAG, "Lỗi phân giải /data/vendor/hwcfg/profile.json", e);
+                }
+            }
+        }
+
+        // 2. Đọc theo từng trường từ sys.hwcfg.* hoặc /data/vendor/hwcfg/<key>
         String model = getHwcfgValue("model");
         String brand = getHwcfgValue("brand");
         String device = getHwcfgValue("device");
         String name = getHwcfgValue("name");
         String manufacturer = getHwcfgValue("manufacturer");
-        if (TextUtils.isEmpty(manufacturer)) manufacturer = brand;
         String fingerprint = getHwcfgValue("fingerprint");
         String socModel = getHwcfgValue("socmodel");
         String socMaker = getHwcfgValue("socmaker");
@@ -162,35 +207,19 @@ public final class AttestationHooks {
         String serial = getHwcfgValue("serial");
         if (TextUtils.isEmpty(serial)) serial = getHwcfgValue("SerialNo");
         String board = getHwcfgValue("board");
-        if (TextUtils.isEmpty(board)) board = getHwcfgValue("platform");
         String hardware = getHwcfgValue("hardware");
-        if (TextUtils.isEmpty(hardware)) hardware = board;
         String buildId = getHwcfgValue("buildid");
-        if (TextUtils.isEmpty(buildId)) buildId = getHwcfgValue("id");
         String displayId = getHwcfgValue("displayid");
-        if (TextUtils.isEmpty(displayId)) displayId = getHwcfgValue("display");
         String incremental = getHwcfgValue("incremental");
         String baseband = getHwcfgValue("baseband");
 
+        // Chỉ ghi đè khi người dùng có cấu hình cụ thể
         if (!TextUtils.isEmpty(model)) setBuildField("MODEL", model);
-        else setBuildField("MODEL", "SM-G960F");
-
         if (!TextUtils.isEmpty(brand)) setBuildField("BRAND", brand);
-        else setBuildField("BRAND", "samsung");
-
         if (!TextUtils.isEmpty(manufacturer)) setBuildField("MANUFACTURER", manufacturer);
-        else setBuildField("MANUFACTURER", "samsung");
-
         if (!TextUtils.isEmpty(device)) setBuildField("DEVICE", device);
-        else setBuildField("DEVICE", "starlte");
-
         if (!TextUtils.isEmpty(name)) setBuildField("PRODUCT", name);
-        else if (!TextUtils.isEmpty(device)) setBuildField("PRODUCT", device);
-        else setBuildField("PRODUCT", "starltexx");
-
         if (!TextUtils.isEmpty(fingerprint)) setBuildField("FINGERPRINT", fingerprint);
-        else setBuildField("FINGERPRINT", "samsung/starltexx/starlte:10/QP1A.190711.020/G960FXXUHFVK1:user/release-keys");
-
         if (!TextUtils.isEmpty(socModel)) setBuildField("SOC_MODEL", socModel);
         if (!TextUtils.isEmpty(socMaker)) setBuildField("SOC_MANUFACTURER", socMaker);
         if (!TextUtils.isEmpty(secPatch)) setVersionField("SECURITY_PATCH", secPatch);
@@ -205,6 +234,7 @@ public final class AttestationHooks {
         if (!TextUtils.isEmpty(incremental)) setVersionField("INCREMENTAL", incremental);
         if (!TextUtils.isEmpty(baseband)) setBuildField("RADIO", baseband);
 
+        // Luôn bảo đảm cờ bảo mật release-keys
         setBuildField("TYPE", "user");
         setBuildField("TAGS", "release-keys");
     }
@@ -217,10 +247,8 @@ public final class AttestationHooks {
 
         File[] searchDirs = new File[] {
             new File("/data/vendor/hwcfg/Utils"),
-            new File("/data/vendor/hwcfg/active/Utils"),
-            new File("/data/data/com.wantphone.wantspoof/files/Utils"),
-            new File("/data/local/tmp/Utils"),
-            new File("/system/Utils")
+            new File("/data/vendor/hwcfg"),
+            new File("/data/local/tmp/Utils")
         };
         for (File dir : searchDirs) {
             File f = new File(dir, key);
@@ -277,6 +305,22 @@ public final class AttestationHooks {
 
     public static boolean isGmsProcess() {
         return sIsGms;
+    }
+
+    public static boolean isUnstableProcess() {
+        return sIsUnstable;
+    }
+
+    /**
+     * Called when GMS requests certificate chain and no emulated keybox chain is available.
+     * Must return true to throw UnsupportedOperationException, forcing software attestation
+     * fallback instead of leaking Samsung hardware keystore identity.
+     */
+    public static boolean onEngineGetCertificateChain() {
+        // Always block hardware keystore chain for GMS when keybox emulated chain is unavailable.
+        // This prevents Samsung Exynos TEE keymaster from exposing real device identity
+        // (Samsung cert chain, serial, IMEI etc.) to Google's Play Integrity servers.
+        return true;
     }
 
 
