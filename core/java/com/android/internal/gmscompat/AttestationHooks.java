@@ -91,6 +91,29 @@ public final class AttestationHooks {
     }
 
     private static void setGmsCertifiedProps() {
+        // 1. Quét file pif.prop định dạng KEY=VALUE (chuẩn PIF/TrickyStore/Keybox)
+        String[] propPaths = {
+            "/data/vendor/keybox/pif.prop",
+            "/data/adb/tricky_store/pif.prop",
+            "/data/adb/modules/playintegrityfix/custom.pif.prop",
+            "/data/adb/modules/playintegrityfix/pif.prop",
+            "/system/etc/security/pif.prop",
+            "/vendor/etc/security/pif.prop",
+            "/system/etc/pif.prop",
+            "/vendor/etc/pif.prop"
+        };
+        for (String p : propPaths) {
+            File f = new File(p);
+            if (f.exists()) {
+                String content = readFromFile(f);
+                if (!TextUtils.isEmpty(content) && loadFromPifProp(content)) {
+                    Log.i(TAG, "Loaded GMS certified props from " + p);
+                    return;
+                }
+            }
+        }
+
+        // 2. Quét file JSON
         File dataFile = new File(Environment.getDataSystemDirectory(), DATA_FILE);
         String savedProps = readFromFile(dataFile);
 
@@ -116,7 +139,6 @@ public final class AttestationHooks {
         }
 
         if (TextUtils.isEmpty(savedProps)) {
-            // Do not hardcode conflicting properties; let PIF/Tricky Store modules handle fingerprint
             return;
         }
 
@@ -127,20 +149,47 @@ public final class AttestationHooks {
             while (keys.hasNext()) {
                 String key = keys.next();
                 String value = parsedProps.getString(key);
-                if (key.startsWith("VERSION.")) {
-                    setVersionField(key.substring(8), value);
-                } else if (key.startsWith("VERSION:")) {
-                    setVersionField(key.substring(8), value);
-                } else if ("RELEASE".equalsIgnoreCase(key) || "INCREMENTAL".equalsIgnoreCase(key)
-                        || "SECURITY_PATCH".equalsIgnoreCase(key) || "DEVICE_INITIAL_SDK_INT".equalsIgnoreCase(key)
-                        || "SDK_INT".equalsIgnoreCase(key) || "PREVIEW_SDK_INT".equalsIgnoreCase(key)) {
-                    setVersionField(key, value);
-                } else {
-                    setBuildField(key, value);
-                }
+                applyPropField(key, value);
             }
         } catch (JSONException e) {
             Log.e(TAG, "Lỗi phân giải JSON certified props", e);
+        }
+    }
+
+    private static boolean loadFromPifProp(String content) {
+        if (TextUtils.isEmpty(content)) return false;
+        boolean applied = false;
+        for (String line : content.split("\\r?\\n")) {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            int eq = line.indexOf('=');
+            if (eq <= 0) continue;
+            String key = line.substring(0, eq).trim();
+            String value = line.substring(eq + 1).trim();
+            if (!key.isEmpty() && !value.isEmpty()) {
+                applyPropField(key, value);
+                applied = true;
+            }
+        }
+        return applied;
+    }
+
+    private static void applyPropField(String key, String value) {
+        if (key.startsWith("VERSION.")) {
+            setVersionField(key.substring(8), value);
+        } else if (key.startsWith("VERSION:")) {
+            setVersionField(key.substring(8), value);
+        } else if ("RELEASE".equalsIgnoreCase(key) || "INCREMENTAL".equalsIgnoreCase(key)
+                || "SECURITY_PATCH".equalsIgnoreCase(key) || "DEVICE_INITIAL_SDK_INT".equalsIgnoreCase(key)
+                || "SDK_INT".equalsIgnoreCase(key) || "PREVIEW_SDK_INT".equalsIgnoreCase(key)
+                || "FIRST_API_LEVEL".equalsIgnoreCase(key)) {
+            if ("FIRST_API_LEVEL".equalsIgnoreCase(key)) {
+                setVersionField("DEVICE_INITIAL_SDK_INT", value);
+            } else {
+                setVersionField(key, value);
+            }
+        } else {
+            setBuildField(key, value);
         }
     }
 
