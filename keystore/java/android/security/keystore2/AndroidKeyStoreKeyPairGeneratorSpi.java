@@ -688,46 +688,24 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         try {
             KeyStoreSecurityLevel iSecurityLevel = mKeyStore.getSecurityLevel(securityLevel);
 
-            String currentPkg = ActivityThread.currentPackageName();
-            boolean isGms = "com.google.android.gms".equals(currentPkg) ||
-                            "com.google.android.gms.unstable".equals(currentPkg) ||
-                            "com.android.vending".equals(currentPkg);
-
-            KeyDescriptor attestKeyDescriptor = mAttestKeyDescriptor;
-            if (isGms && com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
-                attestKeyDescriptor = null;
-            }
-
-            KeyMetadata metadata = iSecurityLevel.generateKey(descriptor, attestKeyDescriptor,
+            KeyMetadata metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
                     constructKeyGenerationArguments(), flags, additionalEntropy);
 
             AndroidKeyStorePublicKey publicKey =
                     AndroidKeyStoreProvider.makeAndroidKeyStorePublicKeyFromKeyEntryResponse(
                             descriptor, metadata, iSecurityLevel, mKeymasterAlgorithm);
-
-            if (!isGms || !com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
-                GenerateRkpKey keyGen = new GenerateRkpKey(ActivityThread
-                        .currentApplication());
-                try {
-                    if (mSpec.getAttestationChallenge() != null) {
-                        keyGen.notifyKeyGenerated(securityLevel);
-                    }
-                } catch (RemoteException e) {
-                    // This is not really an error state, and necessarily does not apply to non RKP
-                    // systems or hybrid systems where RKP is not currently turned on.
-                    Log.d(TAG, "Couldn't connect to the RemoteProvisioner backend.", e);
+            GenerateRkpKey keyGen = new GenerateRkpKey(ActivityThread
+                    .currentApplication());
+            try {
+                if (mSpec.getAttestationChallenge() != null) {
+                    keyGen.notifyKeyGenerated(securityLevel);
                 }
+            } catch (RemoteException e) {
+                // This is not really an error state, and necessarily does not apply to non RKP
+                // systems or hybrid systems where RKP is not currently turned on.
+                Log.d(TAG, "Couldn't connect to the RemoteProvisioner backend.", e);
             }
             success = true;
-            if (isGms && mSpec.getAttestationChallenge() != null) {
-                com.android.internal.gmscompat.KeyboxProvider.onKeyGenerated(
-                        mEntryAlias,
-                        publicKey,
-                        mSpec.getAttestationChallenge(),
-                        mSpec.getPurposes(),
-                        mKeySizeBits,
-                        mKeymasterAlgorithm == KeymasterDefs.KM_ALGORITHM_EC);
-            }
             KeyPair kp = new KeyPair(publicKey, publicKey.getPrivateKey());
             return new GenerateKeyPairHelperResult(0, kp);
         } catch (KeyStoreException e) {
@@ -815,15 +793,6 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         byte[] challenge = mSpec.getAttestationChallenge();
 
         if (challenge != null) {
-            String currentPkg = ActivityThread.currentPackageName();
-            boolean isGms = "com.google.android.gms".equals(currentPkg) ||
-                            "com.google.android.gms.unstable".equals(currentPkg) ||
-                            "com.android.vending".equals(currentPkg);
-            if (isGms && com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
-                Log.d(TAG, "KeyboxProvider is available; skipping native keymaster attestation challenge parameters");
-                return;
-            }
-
             params.add(KeyStore2ParameterUtils.makeBytes(
                     KeymasterDefs.KM_TAG_ATTESTATION_CHALLENGE, challenge
             ));

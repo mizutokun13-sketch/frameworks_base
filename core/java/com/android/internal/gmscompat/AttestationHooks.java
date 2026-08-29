@@ -63,7 +63,7 @@ public final class AttestationHooks {
 
         if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(processName)) return;
 
-        final boolean spoofGms = SystemProperties.getBoolean("persist.sys.hwcfg.gms", true);
+        final boolean spoofGms = SystemProperties.getBoolean("persist.sys.hwcfg.gms", false);
 
         // =========================================================================
         // NHÁNH 1: DÀNH RIÊNG CHO GMS & CH PLAY (PLAY INTEGRITY CERTIFICATION)
@@ -119,19 +119,7 @@ public final class AttestationHooks {
         }
 
         if (TextUtils.isEmpty(savedProps)) {
-            setBuildField("BRAND", "google");
-            setBuildField("MANUFACTURER", "Google");
-            setBuildField("DEVICE", "panther");
-            setBuildField("PRODUCT", "panther");
-            setBuildField("MODEL", "Pixel 7");
-            setBuildField("FINGERPRINT", "google/panther/panther:15/AP4A.250605.005/12854468:user/release-keys");
-            setBuildField("ID", "AP4A.250605.005");
-            setBuildField("TYPE", "user");
-            setBuildField("TAGS", "release-keys");
-            setVersionField("INCREMENTAL", "12854468");
-            setVersionField("RELEASE", "15");
-            setVersionField("DEVICE_INITIAL_SDK_INT", 33);
-            setVersionField("SECURITY_PATCH", "2025-06-05");
+            // Do not hardcode conflicting properties; let PIF/Tricky Store modules handle fingerprint
             return;
         }
 
@@ -317,10 +305,7 @@ public final class AttestationHooks {
      * fallback instead of leaking Samsung hardware keystore identity.
      */
     public static boolean onEngineGetCertificateChain() {
-        // Always block hardware keystore chain for GMS when keybox emulated chain is unavailable.
-        // This prevents Samsung Exynos TEE keymaster from exposing real device identity
-        // (Samsung cert chain, serial, IMEI etc.) to Google's Play Integrity servers.
-        return true;
+        return false;
     }
 
 
