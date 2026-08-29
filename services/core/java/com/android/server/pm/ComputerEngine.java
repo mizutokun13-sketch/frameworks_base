@@ -2792,6 +2792,9 @@ public class ComputerEngine implements Computer {
             return !mInstantAppRegistry.isInstantAccessGranted(
                     userId, UserHandle.getAppId(callingUid), ps.getAppId());
         }
+        if (HmaEngine.shouldFilterForCaller(this, ps, callingUid, userId)) {
+            return true;
+        }
         int appId = UserHandle.getAppId(callingUid);
         final SettingBase callingPs = mSettings.getSettingBase(appId);
         return mAppsFilter.shouldFilterApplication(this, callingUid, callingPs, ps, userId);
@@ -5144,6 +5147,12 @@ public class ComputerEngine implements Computer {
                 installerPackageName = null;
             }
         }
+        if (UserHandle.getAppId(callingUid) >= Process.FIRST_APPLICATION_UID) {
+            String spoofed = HmaEngine.getSpoofedInstaller(this, packageName, callingUid);
+            if (spoofed != null) {
+                return spoofed;
+            }
+        }
         return installerPackageName;
     }
 
@@ -5238,6 +5247,14 @@ public class ComputerEngine implements Computer {
             initiatingPackageSigningInfo = new SigningInfo(signatures.mSigningDetails);
         } else {
             initiatingPackageSigningInfo = null;
+        }
+
+        if (UserHandle.getAppId(callingUid) >= Process.FIRST_APPLICATION_UID) {
+            String spoofed = HmaEngine.getSpoofedInstaller(this, packageName, callingUid);
+            if (spoofed != null) {
+                installerPackageName = spoofed;
+                initiatingPackageName = spoofed;
+            }
         }
 
         return new InstallSourceInfo(initiatingPackageName, initiatingPackageSigningInfo,

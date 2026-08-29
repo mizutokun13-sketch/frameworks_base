@@ -2016,6 +2016,65 @@ public class TelephonyManager {
         }
     }
 
+    private static boolean shouldSpoofTelephonyForCaller() {
+        int uid = android.os.Process.myUid();
+        if (uid < 10000) return false;
+        try {
+            String pkg = null;
+            try {
+                pkg = (String) Class.forName("android.app.ActivityThread")
+                        .getMethod("currentPackageName")
+                        .invoke(null);
+            } catch (Throwable ignored) {}
+            if (pkg == null) {
+                try {
+                    pkg = (String) Class.forName("android.app.ActivityThread")
+                            .getMethod("currentProcessName")
+                            .invoke(null);
+                } catch (Throwable ignored) {}
+            }
+            if (pkg != null) {
+                if (pkg.equals("com.android.settings") ||
+                    pkg.startsWith("com.android.settings.") ||
+                    pkg.equals("com.android.systemui") ||
+                    pkg.startsWith("com.android.systemui.") ||
+                    pkg.equals("com.android.phone") ||
+                    pkg.startsWith("com.android.phone.") ||
+                    pkg.startsWith("com.android.server") ||
+                    pkg.equals("com.android.shell") ||
+                    pkg.startsWith("com.wantphone.wantspoof") ||
+                    pkg.equals("android")) {
+                    return false;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return true;
+    }
+
+    private static String getTelephonySpoofValue(String key) {
+        String val = android.os.SystemProperties.get("sys.hwcfg." + key,
+                android.os.SystemProperties.get("persist.sys.hwcfg." + key,
+                android.os.SystemProperties.get("gsm.hwcfg." + key, "")));
+        if (val != null && !val.isEmpty()) return val;
+
+        try {
+            java.io.File[] files = new java.io.File[] {
+                new java.io.File("/data/vendor/hwcfg/active/Utils/" + key),
+                new java.io.File("/data/vendor/hwcfg/Utils/" + key),
+                new java.io.File("/data/data/com.wantphone.wantspoof/files/Utils/" + key)
+            };
+            for (java.io.File f : files) {
+                if (f.exists() && f.canRead()) {
+                    java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f));
+                    String l = br.readLine();
+                    br.close();
+                    if (l != null && !l.trim().isEmpty()) return l.trim();
+                }
+            }
+        } catch (Throwable ignored) {}
+        return "";
+    }
+
     /**
      * Returns the unique device ID, for example, the IMEI for GSM and the MEID
      * or ESN for CDMA phones. Return null if device ID is not available.
@@ -2107,6 +2166,15 @@ public class TelephonyManager {
     @SuppressAutoDoc // No support for device / profile owner or carrier privileges (b/72967236).
     @RequiresPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     public String getDeviceId(int slotIndex) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofImei = getTelephonySpoofValue("imei");
+            if (slotIndex == 1) {
+                String spoofImei2 = getTelephonySpoofValue("imei2");
+                if (!spoofImei2.isEmpty()) return spoofImei2;
+            }
+            if (!spoofImei.isEmpty()) return spoofImei;
+        }
+
         // FIXME this assumes phoneId == slotIndex
         try {
             IPhoneSubInfo info = getSubscriberInfoService();
@@ -2174,6 +2242,15 @@ public class TelephonyManager {
     @RequiresPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     @RequiresFeature(PackageManager.FEATURE_TELEPHONY_GSM)
     public String getImei(int slotIndex) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofImei = getTelephonySpoofValue("imei");
+            if (slotIndex == 1) {
+                String spoofImei2 = getTelephonySpoofValue("imei2");
+                if (!spoofImei2.isEmpty()) return spoofImei2;
+            }
+            if (!spoofImei.isEmpty()) return spoofImei;
+        }
+
         ITelephony telephony = getITelephony();
         if (telephony == null) return null;
 
@@ -2290,6 +2367,11 @@ public class TelephonyManager {
     @RequiresPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     @RequiresFeature(PackageManager.FEATURE_TELEPHONY_CDMA)
     public String getMeid(int slotIndex) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofMeid = getTelephonySpoofValue("meid");
+            if (!spoofMeid.isEmpty()) return spoofMeid;
+        }
+
         ITelephony telephony = getITelephony();
         if (telephony == null) return null;
 
@@ -2721,6 +2803,12 @@ public class TelephonyManager {
      */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public String getNetworkOperatorName(int subId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofCarrier = getTelephonySpoofValue("carrier");
+            if (spoofCarrier.isEmpty()) spoofCarrier = getTelephonySpoofValue("network_operator_name");
+            if (spoofCarrier.isEmpty()) spoofCarrier = getTelephonySpoofValue("sim_operator");
+            if (!spoofCarrier.isEmpty()) return spoofCarrier;
+        }
         int phoneId = SubscriptionManager.getPhoneId(subId);
         return getTelephonyProperty(phoneId, TelephonyProperties.operator_alpha(), "");
     }
@@ -2767,6 +2855,11 @@ public class TelephonyManager {
      **/
     @UnsupportedAppUsage
     public String getNetworkOperatorForPhone(int phoneId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofMccMnc = getTelephonySpoofValue("mccmnc");
+            if (spoofMccMnc.isEmpty()) spoofMccMnc = getTelephonySpoofValue("network_operator");
+            if (!spoofMccMnc.isEmpty()) return spoofMccMnc;
+        }
         return getTelephonyProperty(phoneId, TelephonyProperties.operator_numeric(), "");
     }
 
@@ -2873,6 +2966,11 @@ public class TelephonyManager {
     @RequiresFeature(PackageManager.FEATURE_TELEPHONY_RADIO_ACCESS)
     @NonNull
     public String getNetworkCountryIso(int slotIndex) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofIso = getTelephonySpoofValue("network_country_iso");
+            if (spoofIso.isEmpty()) spoofIso = getTelephonySpoofValue("country_iso");
+            if (!spoofIso.isEmpty()) return spoofIso;
+        }
         try {
             if (slotIndex != SubscriptionManager.DEFAULT_SIM_SLOT_INDEX
                     && !SubscriptionManager.isValidSlotIndex(slotIndex)) {
@@ -3519,6 +3617,13 @@ public class TelephonyManager {
      */
     @RequiresFeature(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION)
     public @SimState int getSimState() {
+        if (shouldSpoofTelephonyForCaller()) {
+            if (!getTelephonySpoofValue("carrier").isEmpty() ||
+                !getTelephonySpoofValue("imei").isEmpty() ||
+                !getTelephonySpoofValue("mccmnc").isEmpty()) {
+                return SIM_STATE_READY;
+            }
+        }
         int simState = getSimStateIncludingLoaded();
         if (simState == SIM_STATE_LOADED) {
             simState = SIM_STATE_READY;
@@ -3791,6 +3896,13 @@ public class TelephonyManager {
      */
     @RequiresFeature(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION)
     public @SimState int getSimState(int slotIndex) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofImei = getTelephonySpoofValue("imei");
+            String spoofCarrier = getTelephonySpoofValue("carrier");
+            if (!spoofImei.isEmpty() || !spoofCarrier.isEmpty()) {
+                return SIM_STATE_READY;
+            }
+        }
         int simState = SubscriptionManager.getSimStateForSlotIndex(slotIndex);
         if (simState == SIM_STATE_LOADED) {
             simState = SIM_STATE_READY;
@@ -3881,6 +3993,11 @@ public class TelephonyManager {
      */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public String getSimOperatorNumericForPhone(int phoneId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofMccMnc = getTelephonySpoofValue("mccmnc");
+            if (spoofMccMnc.isEmpty()) spoofMccMnc = getTelephonySpoofValue("sim_operator_numeric");
+            if (!spoofMccMnc.isEmpty()) return spoofMccMnc;
+        }
         return getTelephonyProperty(phoneId, TelephonyProperties.icc_operator_numeric(), "");
     }
 
@@ -3919,6 +4036,11 @@ public class TelephonyManager {
      */
     @UnsupportedAppUsage
     public String getSimOperatorNameForPhone(int phoneId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofCarrier = getTelephonySpoofValue("carrier");
+            if (spoofCarrier.isEmpty()) spoofCarrier = getTelephonySpoofValue("sim_operator");
+            if (!spoofCarrier.isEmpty()) return spoofCarrier;
+        }
         return getTelephonyProperty(phoneId, TelephonyProperties.icc_operator_alpha(), "");
     }
 
@@ -3953,6 +4075,11 @@ public class TelephonyManager {
      */
     @UnsupportedAppUsage
     public static String getSimCountryIsoForPhone(int phoneId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofIso = getTelephonySpoofValue("sim_country_iso");
+            if (spoofIso.isEmpty()) spoofIso = getTelephonySpoofValue("country_iso");
+            if (!spoofIso.isEmpty()) return spoofIso;
+        }
         return getTelephonyProperty(phoneId, TelephonyProperties.icc_operator_iso_country(), "");
     }
 
@@ -4029,6 +4156,11 @@ public class TelephonyManager {
     @RequiresPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     @UnsupportedAppUsage
     public String getSimSerialNumber(int subId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofSerial = getTelephonySpoofValue("sim_serial");
+            if (spoofSerial.isEmpty()) spoofSerial = getTelephonySpoofValue("iccid");
+            if (!spoofSerial.isEmpty()) return spoofSerial;
+        }
         try {
             IPhoneSubInfo info = getSubscriberInfoService();
             if (info == null)
@@ -4443,6 +4575,10 @@ public class TelephonyManager {
     @RequiresPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE)
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public String getSubscriberId(int subId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofImsi = getTelephonySpoofValue("imsi");
+            if (!spoofImsi.isEmpty()) return spoofImsi;
+        }
         try {
             IPhoneSubInfo info = getSubscriberInfoService();
             if (info == null)
@@ -5057,6 +5193,11 @@ public class TelephonyManager {
     })
     @UnsupportedAppUsage
     public String getLine1Number(int subId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofNum = getTelephonySpoofValue("phonenumber");
+            if (spoofNum.isEmpty()) spoofNum = getTelephonySpoofValue("line1number");
+            if (!spoofNum.isEmpty()) return spoofNum;
+        }
         String number = null;
         try {
             ITelephony telephony = getITelephony();
@@ -12429,6 +12570,11 @@ public class TelephonyManager {
      */
     @RequiresFeature(PackageManager.FEATURE_TELEPHONY_SUBSCRIPTION)
     public @Nullable CharSequence getSimCarrierIdName() {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofCarrier = getTelephonySpoofValue("carrier");
+            if (spoofCarrier.isEmpty()) spoofCarrier = getTelephonySpoofValue("sim_operator");
+            if (!spoofCarrier.isEmpty()) return spoofCarrier;
+        }
         try {
             ITelephony service = getITelephony();
             if (service != null) {

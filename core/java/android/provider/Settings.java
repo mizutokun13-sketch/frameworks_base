@@ -7483,6 +7483,43 @@ public final class Settings {
                 }
             }
 
+            if (ANDROID_ID.equals(name)) {
+                String spoofId = android.os.SystemProperties.get("sys.hwcfg.androidid",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.androidid",
+                        android.os.SystemProperties.get("gsm.hwcfg.androidid", "")));
+                if (spoofId != null && !spoofId.isEmpty()) {
+                    return spoofId;
+                }
+                try {
+                    java.io.File[] files = new java.io.File[] {
+                        new java.io.File("/data/vendor/hwcfg/active/Utils/androidid"),
+                        new java.io.File("/data/vendor/hwcfg/Utils/androidid"),
+                        new java.io.File("/data/data/com.wantphone.wantspoof/files/Utils/androidid")
+                    };
+                    for (java.io.File f : files) {
+                        if (f.exists() && f.canRead()) {
+                            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f));
+                            String val = br.readLine();
+                            br.close();
+                            if (val != null && !val.trim().isEmpty()) {
+                                return val.trim();
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+
+            if ("bluetooth_name".equals(name)) {
+                String btName = android.os.SystemProperties.get("sys.hwcfg.bluetooth_name",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.bluetooth_name", ""));
+                if (btName.isEmpty()) {
+                    String model = android.os.SystemProperties.get("sys.hwcfg.model", "");
+                    String brand = android.os.SystemProperties.get("sys.hwcfg.brand", "");
+                    if (!model.isEmpty()) btName = brand.isEmpty() ? model : (brand + " " + model);
+                }
+                if (!btName.isEmpty()) return btName;
+            }
+
             return sNameValueCache.getStringForUser(resolver, name, userHandle);
         }
 
@@ -18019,6 +18056,17 @@ public final class Settings {
                         + " to android.provider.Settings.System, returning read-only value.");
                 return System.getStringForUser(resolver, name, userHandle);
             }
+            if (DEVICE_NAME.equals(name)) {
+                String devName = android.os.SystemProperties.get("sys.hwcfg.device_name",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.device_name", ""));
+                if (devName.isEmpty()) {
+                    String model = android.os.SystemProperties.get("sys.hwcfg.model", "");
+                    String brand = android.os.SystemProperties.get("sys.hwcfg.brand", "");
+                    if (!model.isEmpty()) devName = brand.isEmpty() ? model : (brand + " " + model);
+                }
+                if (!devName.isEmpty()) return devName;
+            }
+
             return sNameValueCache.getStringForUser(resolver, name, userHandle);
         }
 
