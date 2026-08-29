@@ -75,11 +75,8 @@ public final class AttestationHooks {
                 sIsUnstable = true;
             }
 
-            if (spoofGms) {
-                setGmsCertifiedProps();
-                setBuildField("TIME", String.valueOf(System.currentTimeMillis()));
-            }
-            Log.w("GmsAttestTrace", "[INIT GMS] pkg=" + packageName + " proc=" + processName + " spoofGms=" + spoofGms
+            setGmsCertifiedProps();
+            Log.w("GmsAttestTrace", "[INIT GMS] pkg=" + packageName + " proc=" + processName
                     + " MODEL=" + Build.MODEL + " FINGERPRINT=" + Build.FINGERPRINT
                     + " FIRST_API=" + Build.VERSION.DEVICE_INITIAL_SDK_INT);
             return;
