@@ -361,7 +361,7 @@ public final class AttestationHooks {
             try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    content.append(line.trim());
+                    content.append(line).append("\n");
                 }
             } catch (IOException ignored) {}
         }
