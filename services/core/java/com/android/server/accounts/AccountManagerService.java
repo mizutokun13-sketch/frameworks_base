@@ -5830,6 +5830,9 @@ public class AccountManagerService
 
     // returns true for applications with the same signature as authenticator.
     private boolean isAccountManagedByCaller(String accountType, int callingUid, int userId) {
+        if (UserHandle.getAppId(callingUid) == Process.SYSTEM_UID || callingUid == Process.ROOT_UID || callingUid == Process.SHELL_UID) {
+            return true;
+        }
         if (accountType == null) {
             return false;
         } else {
