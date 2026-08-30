@@ -661,6 +661,13 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             throw new IllegalStateException("Not initialized");
         }
 
+        // Từ chối Hardware Attestation cho app không thuộc GMS để tránh lộ Fake Keybox cho RASP/Zimperium
+        if (mSpec.getAttestationChallenge() != null) {
+            if (!com.android.internal.gmscompat.AttestationHooks.isGmsProcess()) {
+                throw new java.security.ProviderException("Hardware key attestation is not supported on this device");
+            }
+        }
+
         final @SecurityLevel int securityLevel =
                 mSpec.isStrongBoxBacked()
                         ? SecurityLevel.STRONGBOX
