@@ -85,7 +85,10 @@ public final class AttestationHooks {
         // =========================================================================
         // NHÁNH 2: DÀNH CHO TẤT CẢ APP BÊN THỨ 3 (DÙNG PROFILE TỪ WANTSPOOF / HWCFG)
         // =========================================================================
-        if (!"com.wantphone.wantspoof".equals(packageName)) {
+        if (!"com.wantphone.wantspoof".equals(packageName)
+                && !"gr.nikolasspyr.integritycheck".equals(packageName)
+                && !"com.henrikherzig.playintegritychecker".equals(packageName)
+                && !"io.github.vvb2060.keyattestation".equals(packageName)) {
             spoofAppBuildFields(context);
         }
     }
