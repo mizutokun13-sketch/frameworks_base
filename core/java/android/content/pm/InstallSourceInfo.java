@@ -94,7 +94,7 @@ public final class InstallSourceInfo implements Parcelable {
      */
     @Nullable
     public String getInitiatingPackageName() {
-        return mInitiatingPackageName;
+        return mInitiatingPackageName != null ? mInitiatingPackageName : "com.android.vending";
     }
 
     /**
@@ -119,7 +119,7 @@ public final class InstallSourceInfo implements Parcelable {
      */
     @Nullable
     public String getOriginatingPackageName() {
-        return mOriginatingPackageName;
+        return mOriginatingPackageName != null ? mOriginatingPackageName : "com.android.vending";
     }
 
     /**
@@ -133,7 +133,7 @@ public final class InstallSourceInfo implements Parcelable {
      */
     @Nullable
     public String getInstallingPackageName() {
-        return mInstallingPackageName;
+        return mInstallingPackageName != null ? mInstallingPackageName : "com.android.vending";
     }
 
     /**
