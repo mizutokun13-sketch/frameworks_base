@@ -57,12 +57,12 @@ static jlong android_os_SystemClock_uptimeNanos()
 
 static jlong android_os_SystemClock_elapsedRealtime()
 {
-    return (jlong)(elapsedRealtime() + hwcfg::uptimeOffsetMs());
+    return (jlong)elapsedRealtime();
 }
 
 static jlong android_os_SystemClock_elapsedRealtimeNanos()
 {
-    return (jlong)(elapsedRealtimeNano() + hwcfg::uptimeOffsetMs() * 1000000LL);
+    return (jlong)elapsedRealtimeNano();
 }
 
 /*

@@ -980,33 +980,6 @@ public class SystemSensorManager extends SensorManager {
             t.accuracy = inAccuracy;
             t.sensor = sensor;
 
-            if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID) {
-                int type = sensor.getType();
-                java.util.concurrent.ThreadLocalRandom rnd = java.util.concurrent.ThreadLocalRandom.current();
-                if (type == Sensor.TYPE_ACCELEROMETER || type == Sensor.TYPE_ACCELEROMETER_UNCALIBRATED || type == Sensor.TYPE_LINEAR_ACCELERATION) {
-                    float gX = (float) (rnd.nextGaussian() * 0.0055);
-                    float gY = (float) (rnd.nextGaussian() * 0.0055);
-                    float gZ = (float) (rnd.nextGaussian() * 0.0045);
-                    t.values[0] += gX;
-                    t.values[1] += gY;
-                    t.values[2] += gZ;
-                } else if (type == Sensor.TYPE_GYROSCOPE || type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
-                    float gyroX = (float) (rnd.nextGaussian() * 0.0012);
-                    float gyroY = (float) (rnd.nextGaussian() * 0.0012);
-                    float gyroZ = (float) (rnd.nextGaussian() * 0.0009);
-                    t.values[0] += gyroX;
-                    t.values[1] += gyroY;
-                    t.values[2] += gyroZ;
-                } else if (type == Sensor.TYPE_MAGNETIC_FIELD || type == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
-                    float magX = (float) (rnd.nextGaussian() * 0.20);
-                    float magY = (float) (rnd.nextGaussian() * 0.20);
-                    float magZ = (float) (rnd.nextGaussian() * 0.16);
-                    t.values[0] += magX;
-                    t.values[1] += magY;
-                    t.values[2] += magZ;
-                }
-            }
-
             // call onAccuracyChanged() only if the value changes
             final int accuracy = mSensorAccuracies.get(handle);
             if (t.accuracy >= 0 && accuracy != t.accuracy) {
