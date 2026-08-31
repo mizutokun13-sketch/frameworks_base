@@ -581,19 +581,12 @@ public final class AccessibilityManager {
         return mCallback;
     }
 
-    private static boolean shouldHideAccessibility() {
-        return android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID;
-    }
-
     /**
      * Returns if the accessibility in the system is enabled.
      *
      * @return True if accessibility is enabled, false otherwise.
      */
     public boolean isEnabled() {
-        if (shouldHideAccessibility()) {
-            return false;
-        }
         synchronized (mLock) {
             return mIsEnabled || (mAccessibilityPolicy != null
                     && mAccessibilityPolicy.isEnabled(mIsEnabled));
@@ -606,9 +599,6 @@ public final class AccessibilityManager {
      * @return True if touch exploration is enabled, false otherwise.
      */
     public boolean isTouchExplorationEnabled() {
-        if (shouldHideAccessibility()) {
-            return false;
-        }
         synchronized (mLock) {
             IAccessibilityManager service = getServiceLocked();
             if (service == null) {
@@ -784,9 +774,6 @@ public final class AccessibilityManager {
      * @return An unmodifiable list with {@link AccessibilityServiceInfo}s.
      */
     public List<AccessibilityServiceInfo> getInstalledAccessibilityServiceList() {
-        if (shouldHideAccessibility()) {
-            return Collections.emptyList();
-        }
         final IAccessibilityManager service;
         final int userId;
         synchronized (mLock) {
@@ -832,9 +819,6 @@ public final class AccessibilityManager {
      */
     public List<AccessibilityServiceInfo> getEnabledAccessibilityServiceList(
             int feedbackTypeFlags) {
-        if (shouldHideAccessibility()) {
-            return Collections.emptyList();
-        }
         final IAccessibilityManager service;
         final int userId;
         synchronized (mLock) {
