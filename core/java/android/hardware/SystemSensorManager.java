@@ -982,21 +982,28 @@ public class SystemSensorManager extends SensorManager {
 
             if (android.os.Process.myUid() >= android.os.Process.FIRST_APPLICATION_UID) {
                 int type = sensor.getType();
-                double timeSec = timestamp / 1_000_000_000.0;
-                if (type == Sensor.TYPE_ACCELEROMETER || type == Sensor.TYPE_ACCELEROMETER_UNCALIBRATED) {
-                    float jitterX = (float) (Math.sin(timeSec * 50.0) * 0.008 + Math.cos(timeSec * 31.0) * 0.004);
-                    float jitterY = (float) (Math.cos(timeSec * 45.0) * 0.008 + Math.sin(timeSec * 29.0) * 0.004);
-                    float jitterZ = (float) (Math.sin(timeSec * 40.0) * 0.006);
-                    t.values[0] += jitterX;
-                    t.values[1] += jitterY;
-                    t.values[2] += jitterZ;
+                java.util.concurrent.ThreadLocalRandom rnd = java.util.concurrent.ThreadLocalRandom.current();
+                if (type == Sensor.TYPE_ACCELEROMETER || type == Sensor.TYPE_ACCELEROMETER_UNCALIBRATED || type == Sensor.TYPE_LINEAR_ACCELERATION) {
+                    float gX = (float) (rnd.nextGaussian() * 0.0055);
+                    float gY = (float) (rnd.nextGaussian() * 0.0055);
+                    float gZ = (float) (rnd.nextGaussian() * 0.0045);
+                    t.values[0] += gX;
+                    t.values[1] += gY;
+                    t.values[2] += gZ;
                 } else if (type == Sensor.TYPE_GYROSCOPE || type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
-                    float jitterGyroX = (float) (Math.sin(timeSec * 48.0) * 0.0015);
-                    float jitterGyroY = (float) (Math.cos(timeSec * 42.0) * 0.0015);
-                    float jitterGyroZ = (float) (Math.sin(timeSec * 36.0) * 0.0010);
-                    t.values[0] += jitterGyroX;
-                    t.values[1] += jitterGyroY;
-                    t.values[2] += jitterGyroZ;
+                    float gyroX = (float) (rnd.nextGaussian() * 0.0012);
+                    float gyroY = (float) (rnd.nextGaussian() * 0.0012);
+                    float gyroZ = (float) (rnd.nextGaussian() * 0.0009);
+                    t.values[0] += gyroX;
+                    t.values[1] += gyroY;
+                    t.values[2] += gyroZ;
+                } else if (type == Sensor.TYPE_MAGNETIC_FIELD || type == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
+                    float magX = (float) (rnd.nextGaussian() * 0.20);
+                    float magY = (float) (rnd.nextGaussian() * 0.20);
+                    float magZ = (float) (rnd.nextGaussian() * 0.16);
+                    t.values[0] += magX;
+                    t.values[1] += magY;
+                    t.values[2] += magZ;
                 }
             }
 

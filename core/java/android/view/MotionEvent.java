@@ -2590,7 +2590,11 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOOL_MAJOR
      */
     public final float getToolMajor(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOOL_MAJOR, pointerIndex, HISTORY_CURRENT);
+        float tm = nativeGetAxisValue(mNativePtr, AXIS_TOOL_MAJOR, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch() && tm <= 0.0f) {
+            return getTouchMajor(pointerIndex) * 1.15f;
+        }
+        return tm;
     }
 
     /**
@@ -2606,7 +2610,11 @@ public final class MotionEvent extends InputEvent implements Parcelable {
      * @see #AXIS_TOOL_MINOR
      */
     public final float getToolMinor(int pointerIndex) {
-        return nativeGetAxisValue(mNativePtr, AXIS_TOOL_MINOR, pointerIndex, HISTORY_CURRENT);
+        float tm = nativeGetAxisValue(mNativePtr, AXIS_TOOL_MINOR, pointerIndex, HISTORY_CURRENT);
+        if (shouldSpoofTouch() && tm <= 0.0f) {
+            return getTouchMinor(pointerIndex) * 1.15f;
+        }
+        return tm;
     }
 
     /**
