@@ -456,14 +456,7 @@ std::string filterGlExtensions(const char* real) {
 }
 
 long long uptimeOffsetMs() {
-    if ((getuid() / AID_APP_START) < 1) return 0;
-    std::string v = get("realtime");
-    if (v.empty()) v = get("uptime");
-    if (v.empty()) v = get("elapsed");
-    if (v.empty()) v = get("boottime");
-    if (v.empty()) return 0;
-    long long ms = strtoll(v.c_str(), nullptr, 10);
-    return ms < 0 ? 0 : ms;
+    return 0;
 }
 
 }  // namespace hwcfg
