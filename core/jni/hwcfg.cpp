@@ -139,6 +139,7 @@ static const PropPair kPropMap[] = {
     {"ro.vendor.build.date","builddate"},{"ro.vendor.build.date.utc","builddateutc"},
     {"ro.build.version.security_patch","securitypatch"},
     {"ro.vendor.build.security_patch","securitypatch"},{"ro.derp.version","displayid"},
+    {"gsm.hwcfg.gps.enabled","gps_enabled"},
     {"gsm.hwcfg.lat","lat"},{"gsm.hwcfg.lon","lon"},
     {"gsm.hwcfg.gps.accuracy","gpsAccuracy"},{"gsm.hwcfg.gps.altitude","gpsAltitude"},
     {"gsm.hwcfg.gps.provider","gpsProvider"},{"gsm.hwcfg.gps.speed","gpsSpeed"},
@@ -241,7 +242,7 @@ std::string get(const char* name) {
     auto it = g_cache.find(name);
     if (it != g_cache.end()) return it->second;
 
-    // 1. Check System Properties: sys.hwcfg.<name> and persist.sys.hwcfg.<name>
+    // 1. Check System Properties: sys.hwcfg.<name>, persist.sys.hwcfg.<name>, gsm.hwcfg.<name>
     char prop_val[PROPERTY_VALUE_MAX] = {0};
     std::string prop_key = "sys.hwcfg.";
     prop_key += name;
@@ -251,23 +252,42 @@ std::string get(const char* name) {
         prop_key += name;
         property_get(prop_key.c_str(), prop_val, "");
     }
+    if (prop_val[0] == 0) {
+        prop_key = "gsm.hwcfg.";
+        prop_key += name;
+        property_get(prop_key.c_str(), prop_val, "");
+    }
     if (prop_val[0] != 0) {
         g_cache[name] = prop_val;
         return prop_val;
     }
 
-    // 2. Check File Precedence (SELinux-allowed vendor directories first):
+    // 2. Check File Precedence:
     // 1. /data/vendor/hwcfg/Utils/
     // 2. /data/vendor/hwcfg/active/Utils/
-    // 3. /data/data/com.wantphone.wantspoof/files/Utils/
-    // 4. /data/local/tmp/Utils/
-    // 5. /system/Utils/
+    // 3. /system/etc/hwcfg/Utils/
+    // 4. /system/etc/hwcfg/
+    // 5. /data/data/com.wantphone.wantspoof/files/Utils/
+    // 6. /data/local/tmp/Utils/
+    // 7. /system/Utils/
     std::string path = "/data/vendor/hwcfg/Utils/";
     path += name;
     std::string v = readFile(path.c_str());
 
     if (v.empty()) {
         path = "/data/vendor/hwcfg/active/Utils/";
+        path += name;
+        v = readFile(path.c_str());
+    }
+
+    if (v.empty()) {
+        path = "/system/etc/hwcfg/Utils/";
+        path += name;
+        v = readFile(path.c_str());
+    }
+
+    if (v.empty()) {
+        path = "/system/etc/hwcfg/";
         path += name;
         v = readFile(path.c_str());
     }
@@ -293,6 +313,7 @@ std::string get(const char* name) {
     if (v.empty()) {
         if (const char* alias = aliasField(name)) {
             const char* dirs[] = {"/data/vendor/hwcfg/Utils/", "/data/vendor/hwcfg/active/Utils/",
+                                  "/system/etc/hwcfg/Utils/", "/system/etc/hwcfg/",
                                   "/data/data/com.wantphone.wantspoof/files/Utils/",
                                   "/data/local/tmp/Utils/", "/system/Utils/"};
             for (const char* dir : dirs) {
