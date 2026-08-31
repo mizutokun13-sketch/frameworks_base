@@ -405,20 +405,11 @@ public class Location implements Parcelable {
      */
     public @FloatRange(from = -90.0, to = 90.0) double getLatitude() {
         if (android.os.Process.myUid() >= 10000) {
-            String enabled = android.os.SystemProperties.get("sys.hwcfg.gps.enabled",
-                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.enabled",
-                    android.os.SystemProperties.get("gsm.hwcfg.gps.enabled", "1")));
-            if (!"0".equals(enabled)) {
-                String lat = android.os.SystemProperties.get("sys.hwcfg.gps.lat",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.gps.lat",
-                        android.os.SystemProperties.get("sys.hwcfg.lat",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.lat",
-                        android.os.SystemProperties.get("gsm.hwcfg.lat", "")))));
-                if (!lat.isEmpty()) {
-                    try {
-                        return Double.parseDouble(lat);
-                    } catch (NumberFormatException ignored) {}
-                }
+            String lat = android.os.SystemProperties.get("gsm.hwcfg.lat", "");
+            if (!lat.isEmpty()) {
+                try {
+                    return Double.parseDouble(lat);
+                } catch (NumberFormatException ignored) {}
             }
         }
         return mLatitudeDegrees;
@@ -441,20 +432,11 @@ public class Location implements Parcelable {
      */
     public @FloatRange(from = -180.0, to = 180.0) double getLongitude() {
         if (android.os.Process.myUid() >= 10000) {
-            String enabled = android.os.SystemProperties.get("sys.hwcfg.gps.enabled",
-                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.enabled",
-                    android.os.SystemProperties.get("gsm.hwcfg.gps.enabled", "1")));
-            if (!"0".equals(enabled)) {
-                String lon = android.os.SystemProperties.get("sys.hwcfg.gps.lon",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.gps.lon",
-                        android.os.SystemProperties.get("sys.hwcfg.lon",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.lon",
-                        android.os.SystemProperties.get("gsm.hwcfg.lon", "")))));
-                if (!lon.isEmpty()) {
-                    try {
-                        return Double.parseDouble(lon);
-                    } catch (NumberFormatException ignored) {}
-                }
+            String lon = android.os.SystemProperties.get("gsm.hwcfg.lon", "");
+            if (!lon.isEmpty()) {
+                try {
+                    return Double.parseDouble(lon);
+                } catch (NumberFormatException ignored) {}
             }
         }
         return mLongitudeDegrees;
