@@ -661,10 +661,36 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             throw new IllegalStateException("Not initialized");
         }
 
-        // Từ chối Hardware Attestation cho app không thuộc GMS để tránh lộ Fake Keybox cho RASP/Zimperium
+        // Kiểm tra qua ClassLoader: Nếu là tiến trình GMS hoặc app có tích hợp GMS SDK thì cho qua,
+        // ngược lại từ chối bằng ProviderException để tránh lộ Fake Keybox / Knox cho RASP ngân hàng.
         if (mSpec.getAttestationChallenge() != null) {
             if (!com.android.internal.gmscompat.AttestationHooks.isGmsProcess()) {
-                throw new java.security.ProviderException("Hardware key attestation is not supported on this device");
+                boolean hasGmsSdk = false;
+                try {
+                    ClassLoader cl = Thread.currentThread().getContextClassLoader();
+                    if (cl != null) {
+                        try {
+                            Class.forName("com.google.android.gms.common.GoogleApiAvailability", false, cl);
+                            hasGmsSdk = true;
+                        } catch (ClassNotFoundException e1) {
+                            try {
+                                Class.forName("com.google.android.play.core.integrity.StandardIntegrityManager", false, cl);
+                                hasGmsSdk = true;
+                            } catch (ClassNotFoundException e2) {
+                                try {
+                                    Class.forName("com.google.android.gms.tasks.Task", false, cl);
+                                    hasGmsSdk = true;
+                                } catch (ClassNotFoundException ignored) {}
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {
+                    hasGmsSdk = false;
+                }
+
+                if (!hasGmsSdk) {
+                    throw new java.security.ProviderException("Hardware key attestation is not supported on this device");
+                }
             }
         }
 
