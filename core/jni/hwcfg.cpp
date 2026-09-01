@@ -368,15 +368,12 @@ std::string lookupProp(const char* key) {
         std::string b = get("board");
         return b.empty() ? get("device") : b;
     }
-    if (!strcmp(key, "ro.board.platform") || !strcmp(key, "ro.hardware") ||
-        !strcmp(key, "ro.boot.hardware") || !strcmp(key, "ro.hardware.chipname")) {
+    if (!strcmp(key, "ro.hardware.chipname") || !strcmp(key, "ro.soc.model")) {
+        std::string sm = get("socmodel");
+        if (!sm.empty()) return sm;
         std::string p = get("platform");
         if (!p.empty()) return p;
-        p = get("hardware");
-        if (!p.empty()) return p;
-        p = get("board");
-        if (!p.empty()) return p;
-        return get("socmodel");
+        return get("hardware");
     }
 
     if (!strcmp(key, "ro.build.id") || !strcmp(key, "ro.system.build.id") ||
