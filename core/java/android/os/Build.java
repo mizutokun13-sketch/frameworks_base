@@ -115,7 +115,9 @@ public class Build {
     public static final String RADIO = getString("gsm.version.baseband");
 
     /** The name of the hardware (from the kernel command line or /proc). */
-    public static final String HARDWARE = getString("ro.hardware");
+    public static final String HARDWARE = (!getString("ro.hardware.chipname").isEmpty() && !getString("ro.hardware.chipname").equals(UNKNOWN))
+            ? getString("ro.hardware.chipname")
+            : getString("ro.hardware");
 
     /**
      * The SKU of the hardware (from the kernel command line).
