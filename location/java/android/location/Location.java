@@ -219,13 +219,19 @@ public class Location implements Parcelable {
         return cache.mInitialBearing;
     }
 
+    private static boolean isGpsSpoofEnabled() {
+        String en = android.os.SystemProperties.get("sys.hwcfg.gps.enabled",
+                android.os.SystemProperties.get("persist.sys.hwcfg.gps.enabled", "1"));
+        return !"0".equals(en);
+    }
+
     /**
      * Returns the name of the provider associated with this location.
      *
      * @return the name of the provider
      */
     public @Nullable String getProvider() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String provider = android.os.SystemProperties.get("sys.hwcfg.gps.provider",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.provider",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.provider", "")));
@@ -268,7 +274,7 @@ public class Location implements Parcelable {
      * @return the Unix epoch time of this location
      */
     public @IntRange(from = 0) long getTime() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String time = android.os.SystemProperties.get("sys.hwcfg.gps.time",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.time",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.time", "")));
@@ -304,7 +310,7 @@ public class Location implements Parcelable {
      * @return elapsed realtime of this location in nanoseconds
      */
     public @IntRange(from = 0) long getElapsedRealtimeNanos() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String elapsed = android.os.SystemProperties.get("sys.hwcfg.gps.elapsed",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.elapsed",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.elapsed", "")));
@@ -404,8 +410,12 @@ public class Location implements Parcelable {
      * @return latitude of this location
      */
     public @FloatRange(from = -90.0, to = 90.0) double getLatitude() {
-        if (android.os.Process.myUid() >= 10000) {
-            String lat = android.os.SystemProperties.get("gsm.hwcfg.lat", "");
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
+            String lat = android.os.SystemProperties.get("sys.hwcfg.gps.lat",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.lat",
+                    android.os.SystemProperties.get("sys.hwcfg.lat",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.lat",
+                    android.os.SystemProperties.get("gsm.hwcfg.lat", "")))));
             if (!lat.isEmpty()) {
                 try {
                     return Double.parseDouble(lat);
@@ -431,8 +441,12 @@ public class Location implements Parcelable {
      * @return longitude of this location
      */
     public @FloatRange(from = -180.0, to = 180.0) double getLongitude() {
-        if (android.os.Process.myUid() >= 10000) {
-            String lon = android.os.SystemProperties.get("gsm.hwcfg.lon", "");
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
+            String lon = android.os.SystemProperties.get("sys.hwcfg.gps.lon",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.gps.lon",
+                    android.os.SystemProperties.get("sys.hwcfg.lon",
+                    android.os.SystemProperties.get("persist.sys.hwcfg.lon",
+                    android.os.SystemProperties.get("gsm.hwcfg.lon", "")))));
             if (!lon.isEmpty()) {
                 try {
                     return Double.parseDouble(lon);
@@ -465,7 +479,7 @@ public class Location implements Parcelable {
      * @return horizontal accuracy of this location
      */
     public @FloatRange(from = 0.0) float getAccuracy() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String accuracy = android.os.SystemProperties.get("sys.hwcfg.gps.accuracy",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.accuracy",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.accuracy", "")));
@@ -490,7 +504,7 @@ public class Location implements Parcelable {
      * Returns true if this location has a horizontal accuracy, false otherwise.
      */
     public boolean hasAccuracy() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String accuracy = android.os.SystemProperties.get("sys.hwcfg.gps.accuracy",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.accuracy",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.accuracy", "")));
@@ -514,7 +528,7 @@ public class Location implements Parcelable {
      * @return altitude of this location
      */
     public @FloatRange double getAltitude() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String altitude = android.os.SystemProperties.get("sys.hwcfg.gps.altitude",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.altitude",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.altitude", "")));
@@ -539,7 +553,7 @@ public class Location implements Parcelable {
      * Returns true if this location has an altitude, false otherwise.
      */
     public boolean hasAltitude() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String altitude = android.os.SystemProperties.get("sys.hwcfg.gps.altitude",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.altitude",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.altitude", "")));
@@ -603,7 +617,7 @@ public class Location implements Parcelable {
      * @return speed at the time of this location
      */
     public @FloatRange(from = 0.0) float getSpeed() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String speed = android.os.SystemProperties.get("sys.hwcfg.gps.speed",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.speed",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.speed", "")));
@@ -628,7 +642,7 @@ public class Location implements Parcelable {
      * True if this location has a speed, false otherwise.
      */
     public boolean hasSpeed() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String speed = android.os.SystemProperties.get("sys.hwcfg.gps.speed",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.speed",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.speed", "")));
@@ -692,7 +706,7 @@ public class Location implements Parcelable {
      * @return bearing at the time of this location
      */
     public @FloatRange(from = 0.0, to = 360.0, toInclusive = false) float getBearing() {
-        if (android.os.Process.myUid() >= 10000) {
+        if (android.os.Process.myUid() >= 10000 && isGpsSpoofEnabled()) {
             String bearing = android.os.SystemProperties.get("sys.hwcfg.gps.bearing",
                     android.os.SystemProperties.get("persist.sys.hwcfg.gps.bearing",
                     android.os.SystemProperties.get("gsm.hwcfg.gps.bearing", "")));
