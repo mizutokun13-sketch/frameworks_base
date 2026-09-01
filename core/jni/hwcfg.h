@@ -23,7 +23,7 @@ std::string lookupProp(const char* key);
 // unchanged when spoofing to an ARM/Mali GPU, else with all GL_MALI_* removed.
 std::string filterGlExtensions(const char* realExtensions);
 
-// Milliseconds to ADD to elapsedRealtime/uptime (fake long uptime). 0 if unset.
+// Milliseconds to add to elapsedRealtime for app processes. 0 if unset.
 long long uptimeOffsetMs();
 
 }  // namespace hwcfg

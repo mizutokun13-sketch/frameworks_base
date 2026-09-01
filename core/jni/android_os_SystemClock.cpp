@@ -24,6 +24,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+#include <limits>
 
 #include <nativehelper/JNIHelp.h>
 #include "jni.h"
@@ -35,6 +37,8 @@
 
 namespace android {
 
+static constexpr uid_t kAppUidStart = 10000;
+
 static_assert(std::is_same<int64_t, jlong>::value, "jlong isn't an int64_t");
 static_assert(std::is_same<decltype(uptimeMillis()), int64_t>::value,
         "uptimeMillis signature change, expected int64_t return value");
@@ -44,6 +48,29 @@ static_assert(std::is_same<decltype(elapsedRealtime()), int64_t>::value,
         "elapsedRealtime signature change, expected int64_t return value");
 static_assert(std::is_same<decltype(elapsedRealtimeNano()), int64_t>::value,
         "elapsedRealtimeNano signature change, expected int64_t return value");
+
+static int64_t spoofedElapsedRealtimeMillis() {
+    const int64_t real = elapsedRealtime();
+    if (getuid() < kAppUidStart) return real;
+
+    const long long offset = hwcfg::uptimeOffsetMs();
+    if (offset <= 0 || offset > std::numeric_limits<int64_t>::max() - real) return real;
+    return real + static_cast<int64_t>(offset);
+}
+
+static int64_t spoofedElapsedRealtimeNanos() {
+    const int64_t real = elapsedRealtimeNano();
+    if (getuid() < kAppUidStart) return real;
+
+    const long long offset_ms = hwcfg::uptimeOffsetMs();
+    if (offset_ms <= 0 || offset_ms > std::numeric_limits<int64_t>::max() / 1000000LL) {
+        return real;
+    }
+
+    const int64_t offset_ns = static_cast<int64_t>(offset_ms) * 1000000LL;
+    if (offset_ns > std::numeric_limits<int64_t>::max() - real) return real;
+    return real + offset_ns;
+}
 
 static jlong android_os_SystemClock_uptimeMillis()
 {
@@ -57,12 +84,12 @@ static jlong android_os_SystemClock_uptimeNanos()
 
 static jlong android_os_SystemClock_elapsedRealtime()
 {
-    return (jlong)(elapsedRealtime());
+    return (jlong)spoofedElapsedRealtimeMillis();
 }
 
 static jlong android_os_SystemClock_elapsedRealtimeNanos()
 {
-    return (jlong)(elapsedRealtimeNano());
+    return (jlong)spoofedElapsedRealtimeNanos();
 }
 
 /*
@@ -115,4 +142,3 @@ int register_android_os_SystemClock(JNIEnv* env)
 }
 
 }; // namespace android
-

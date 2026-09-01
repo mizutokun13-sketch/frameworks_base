@@ -4,6 +4,7 @@
 #include "hwcfg.h"
 
 #include <cutils/properties.h>
+#include <cerrno>
 #include <unistd.h>
 #include <cstdio>
 #include <cstdlib>
@@ -452,7 +453,17 @@ std::string filterGlExtensions(const char* real) {
 }
 
 long long uptimeOffsetMs() {
-    return 0;
+    // ProfileManager stores the offset in milliseconds in `realtime`.
+    const std::string value = get("realtime");
+    if (value.empty()) return 0;
+
+    errno = 0;
+    char* end = nullptr;
+    const long long offset = strtoll(value.c_str(), &end, 10);
+    if (end == value.c_str() || errno == ERANGE || offset < 0) return 0;
+
+    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') ++end;
+    return *end == '\0' ? offset : 0;
 }
 
 }  // namespace hwcfg
