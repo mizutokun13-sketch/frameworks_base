@@ -281,8 +281,7 @@ public final class AttestationHooks {
 
         File[] searchDirs = new File[] {
             new File("/data/vendor/hwcfg/Utils"),
-            new File("/data/vendor/hwcfg"),
-            new File("/data/local/tmp/Utils")
+            new File("/data/vendor/hwcfg")
         };
         for (File dir : searchDirs) {
             File f = new File(dir, key);

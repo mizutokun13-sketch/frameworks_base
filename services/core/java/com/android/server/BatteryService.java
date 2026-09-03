@@ -781,9 +781,9 @@ public final class BatteryService extends SystemService {
         int batteryLevel = mHealthInfo.batteryLevel;
         int batteryVoltage = mHealthInfo.batteryVoltageMillivolts;
         int batteryTemp = mHealthInfo.batteryTemperatureTenthsCelsius;
-        batteryLevel = getHwcfgInt("gsm.hwcfg.batt.level", batteryLevel);
-        batteryVoltage = getHwcfgInt("gsm.hwcfg.batt.volt", batteryVoltage);
-        batteryTemp = getHwcfgInt("gsm.hwcfg.batt.temp", batteryTemp);
+        batteryLevel = getHwcfgInt("batt.level", batteryLevel);
+        batteryVoltage = getHwcfgInt("batt.volt", batteryVoltage);
+        batteryTemp = getHwcfgInt("batt.temp", batteryTemp);
 
         int icon = getIconLocked(batteryLevel);
 
@@ -823,9 +823,9 @@ public final class BatteryService extends SystemService {
     private void sendBatteryLevelChangedIntentLocked() {
         Bundle event = new Bundle();
         long now = SystemClock.elapsedRealtime();
-        int batteryLevel = getHwcfgInt("gsm.hwcfg.batt.level", mHealthInfo.batteryLevel);
-        int batteryVoltage = getHwcfgInt("gsm.hwcfg.batt.volt", mHealthInfo.batteryVoltageMillivolts);
-        int batteryTemp = getHwcfgInt("gsm.hwcfg.batt.temp",
+        int batteryLevel = getHwcfgInt("batt.level", mHealthInfo.batteryLevel);
+        int batteryVoltage = getHwcfgInt("batt.volt", mHealthInfo.batteryVoltageMillivolts);
+        int batteryTemp = getHwcfgInt("batt.temp",
                 mHealthInfo.batteryTemperatureTenthsCelsius);
         event.putInt(BatteryManager.EXTRA_SEQUENCE, mSequence);
         event.putInt(BatteryManager.EXTRA_STATUS, mHealthInfo.batteryStatus);
@@ -1437,12 +1437,10 @@ public final class BatteryService extends SystemService {
         @Override
         public int getProperty(int id, final BatteryProperty prop) throws RemoteException {
             if (id == BatteryManager.BATTERY_PROPERTY_CAPACITY) {
-                String level = SystemProperties.get("gsm.hwcfg.batt.level", "");
-                if (!level.isEmpty()) {
-                    try {
-                        prop.setLong(Long.parseLong(level));
-                        return 0;
-                    } catch (NumberFormatException ignored) {}
+                int level = getHwcfgInt("batt.level", -1);
+                if (level >= 0) {
+                    prop.setLong(level);
+                    return 0;
                 }
             }
             return mHealthServiceWrapper.getProperty(id, prop);
@@ -1453,8 +1451,17 @@ public final class BatteryService extends SystemService {
         }
     }
 
-    private static int getHwcfgInt(String key, int def) {
-        String value = SystemProperties.get(key, "");
+    private static int getHwcfgInt(String subKey, int def) {
+        String value = SystemProperties.get("sys.hwcfg." + subKey, "");
+        if (value.isEmpty()) {
+            value = SystemProperties.get("persist.sys.hwcfg." + subKey, "");
+        }
+        if (value.isEmpty()) {
+            value = SystemProperties.get("gsm.hwcfg." + subKey, "");
+        }
+        if (value.isEmpty()) {
+            value = SystemProperties.get(subKey, "");
+        }
         if (value.isEmpty()) return def;
         try {
             return Integer.parseInt(value);

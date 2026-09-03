@@ -127,6 +127,7 @@ public class SystemSensorManager extends SensorManager {
     private final boolean mIsPackageDebuggable;
     private final Context mContext;
     private final long mNativeInstance;
+    private final MotionSensorSimulator mMotionSensorSimulator;
 
     private String mBlockedPackageList;
     private ArrayList<String> mBlockedApp = new ArrayList<String>();
@@ -148,6 +149,7 @@ public class SystemSensorManager extends SensorManager {
         mContext = context;
         mNativeInstance = nativeCreate(context.getOpPackageName());
         mIsPackageDebuggable = (0 != (appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE));
+        mMotionSensorSimulator = new MotionSensorSimulator(context.getPackageName());
 
         // initialize the sensor list
         for (int index = 0;; ++index) {
@@ -976,6 +978,7 @@ public class SystemSensorManager extends SensorManager {
             }
             // Copy from the values array.
             System.arraycopy(values, 0, t.values, 0, t.values.length);
+            mManager.mMotionSensorSimulator.transform(sensor, t.values, timestamp);
             t.timestamp = timestamp;
             t.accuracy = inAccuracy;
             t.sensor = sensor;

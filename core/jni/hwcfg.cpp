@@ -70,21 +70,10 @@ bool is_enabled() {
 
     std::string flag = readFile("/data/vendor/hwcfg/seed");
     if (flag.empty()) {
-        flag = readFile("/data/local/tmp/hwcfg_enabled");
+        flag = readFile("/data/vendor/hwcfg/Utils/model");
     }
     if (flag.empty()) {
-        FILE* f = fopen("/system/Utils/IMEI", "rb");
-        if (f) {
-            fclose(f);
-            flag = "1";
-        }
-    }
-    if (flag.empty()) {
-        FILE* f = fopen("/data/local/tmp/Utils/IMEI", "rb");
-        if (f) {
-            fclose(f);
-            flag = "1";
-        }
+        flag = readFile("/data/vendor/hwcfg/Utils/IMEI");
     }
     // trim so a file of only whitespace counts as empty/off
     size_t e = flag.find_last_not_of(" \t\r\n");
@@ -192,6 +181,20 @@ const char* aliasField(const char* name) {
     if (!strcmp(name, "build_date_utc")) return "builddateutc";
     if (!strcmp(name, "builddate")) return "build_date";
     if (!strcmp(name, "build_date")) return "builddate";
+    if (!strcmp(name, "carrier")) return "SimOperatorName";
+    if (!strcmp(name, "SimOperatorName")) return "carrier";
+    if (!strcmp(name, "sim_operator")) return "SimOperatorName";
+    if (!strcmp(name, "network_operator_name")) return "SimOperatorName";
+    if (!strcmp(name, "wifiMac")) return "mac";
+    if (!strcmp(name, "mac")) return "wifiMac";
+    if (!strcmp(name, "wifiName")) return "ssid";
+    if (!strcmp(name, "ssid")) return "wifiName";
+    if (!strcmp(name, "bssid")) return "BSSID";
+    if (!strcmp(name, "BSSID")) return "bssid";
+    if (!strcmp(name, "phonenumber")) return "PhoneNumber";
+    if (!strcmp(name, "PhoneNumber")) return "phonenumber";
+    if (!strcmp(name, "SimOperator")) return "mccmnc";
+    if (!strcmp(name, "mccmnc")) return "SimOperator";
     return nullptr;
 }
 
@@ -242,7 +245,7 @@ std::string get(const char* name) {
     auto it = g_cache.find(name);
     if (it != g_cache.end()) return it->second;
 
-    // 1. Check System Properties: sys.hwcfg.<name>, persist.sys.hwcfg.<name>, gsm.hwcfg.<name>
+    // 1. Check System Properties: sys.hwcfg.<name> -> persist.sys.hwcfg.<name> and aliases
     char prop_val[PROPERTY_VALUE_MAX] = {0};
     std::string prop_key = "sys.hwcfg.";
     prop_key += name;
@@ -253,9 +256,16 @@ std::string get(const char* name) {
         property_get(prop_key.c_str(), prop_val, "");
     }
     if (prop_val[0] == 0) {
-        prop_key = "gsm.hwcfg.";
-        prop_key += name;
-        property_get(prop_key.c_str(), prop_val, "");
+        if (const char* alias = aliasField(name)) {
+            prop_key = "sys.hwcfg.";
+            prop_key += alias;
+            property_get(prop_key.c_str(), prop_val, "");
+            if (prop_val[0] == 0) {
+                prop_key = "persist.sys.hwcfg.";
+                prop_key += alias;
+                property_get(prop_key.c_str(), prop_val, "");
+            }
+        }
     }
     if (prop_val[0] != 0) {
         g_cache[name] = prop_val;
@@ -263,64 +273,26 @@ std::string get(const char* name) {
     }
 
     // 2. Check File Precedence:
-    // 1. /data/vendor/hwcfg/Utils/
-    // 2. /data/vendor/hwcfg/active/Utils/
-    // 3. /system/etc/hwcfg/Utils/
-    // 4. /system/etc/hwcfg/
-    // 5. /data/data/com.wantphone.wantspoof/files/Utils/
-    // 6. /data/local/tmp/Utils/
-    // 7. /system/Utils/
+    // Unified single authoritative path
     std::string path = "/data/vendor/hwcfg/Utils/";
     path += name;
     std::string v = readFile(path.c_str());
 
     if (v.empty()) {
-        path = "/data/vendor/hwcfg/active/Utils/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
-        path = "/system/etc/hwcfg/Utils/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
-        path = "/system/etc/hwcfg/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
-        path = "/data/data/com.wantphone.wantspoof/files/Utils/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
-        path = "/data/local/tmp/Utils/";
-        path += name;
-        v = readFile(path.c_str());
-    }
-
-    if (v.empty()) {
-        path = "/system/Utils/";
+        path = "/data/vendor/hwcfg/";
         path += name;
         v = readFile(path.c_str());
     }
 
     if (v.empty()) {
         if (const char* alias = aliasField(name)) {
-            const char* dirs[] = {"/data/vendor/hwcfg/Utils/", "/data/vendor/hwcfg/active/Utils/",
-                                  "/system/etc/hwcfg/Utils/", "/system/etc/hwcfg/",
-                                  "/data/data/com.wantphone.wantspoof/files/Utils/",
-                                  "/data/local/tmp/Utils/", "/system/Utils/"};
-            for (const char* dir : dirs) {
-                path = dir;
+            path = "/data/vendor/hwcfg/Utils/";
+            path += alias;
+            v = readFile(path.c_str());
+            if (v.empty()) {
+                path = "/data/vendor/hwcfg/";
                 path += alias;
                 v = readFile(path.c_str());
-                if (!v.empty()) break;
             }
         }
     }
@@ -369,12 +341,31 @@ std::string lookupProp(const char* key) {
         std::string b = get("board");
         return b.empty() ? get("device") : b;
     }
+    if (!strcmp(key, "ro.board.platform")) {
+        std::string p = get("platform");
+        if (!p.empty()) return p;
+        p = get("hardware");
+        if (!p.empty()) return p;
+        return get("board");
+    }
+    if (!strcmp(key, "ro.hardware") || !strcmp(key, "ro.boot.hardware")) {
+        std::string h = get("hardware");
+        if (!h.empty()) return h;
+        h = get("platform");
+        if (!h.empty()) return h;
+        return get("board");
+    }
     if (!strcmp(key, "ro.hardware.chipname") || !strcmp(key, "ro.soc.model")) {
-        std::string sm = get("socmodel");
+        std::string sm = get("chipname");
+        if (!sm.empty()) return sm;
+        sm = get("socmodel");
         if (!sm.empty()) return sm;
         std::string p = get("platform");
         if (!p.empty()) return p;
         return get("hardware");
+    }
+    if (!strcmp(key, "ro.soc.manufacturer")) {
+        return get("socmaker");
     }
 
     if (!strcmp(key, "ro.build.id") || !strcmp(key, "ro.system.build.id") ||
@@ -429,27 +420,126 @@ std::string lookupProp(const char* key) {
     return {};
 }
 
+// Authentic OpenGL ES 3.2 extension strings captured from genuine Android devices
+static const char kGlExtensionsAdreno740[] =
+    "GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_sync GL_OES_vertex_half_float "
+    "GL_OES_framebuffer_object GL_OES_rgb8_rgba8 GL_OES_compressed_ETC1_RGB8_texture "
+    "GL_AMD_compressed_ATC_texture GL_KHR_texture_compression_astc_ldr "
+    "GL_KHR_texture_compression_astc_hdr GL_OES_texture_compression_astc GL_OES_texture_npot "
+    "GL_OES_texture_float GL_OES_texture_half_float GL_OES_texture_half_float_linear "
+    "GL_OES_texture_float_linear GL_OES_element_index_uint GL_OES_standard_derivatives "
+    "GL_OES_packed_depth_stencil GL_OES_depth24 GL_OES_depth32 GL_OES_depth_texture "
+    "GL_OES_depth_texture_cube_map GL_OES_texture_stencil8 GL_OES_texture_3D "
+    "GL_OES_compressed_paletted_texture GL_OES_get_program_binary GL_OES_mapbuffer "
+    "GL_OES_texture_storage GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 "
+    "GL_OES_texture_format_BGRA8888 GL_OES_draw_texture GL_OES_copy_image GL_EXT_sRGB "
+    "GL_EXT_sRGB_write_control GL_EXT_multisampled_render_to_texture "
+    "GL_EXT_multisampled_render_to_texture2 GL_EXT_color_buffer_float "
+    "GL_EXT_color_buffer_half_float GL_EXT_disjoint_timer_query GL_EXT_texture_sRGB_decode "
+    "GL_EXT_texture_sRGB_R8 GL_EXT_texture_sRGB_RG8 GL_EXT_robustness "
+    "GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_s3tc GL_EXT_texture_buffer "
+    "GL_EXT_texture_border_clamp GL_EXT_texture_cube_map_array GL_EXT_draw_buffers_indexed "
+    "GL_EXT_geometry_shader GL_EXT_gpu_shader5 GL_EXT_shader_io_blocks "
+    "GL_EXT_tessellation_shader GL_EXT_primitive_bounding_box GL_EXT_clip_cull_distance "
+    "GL_EXT_protected_textures GL_EXT_memory_object GL_EXT_memory_object_fd "
+    "GL_KHR_blend_equation_advanced GL_KHR_blend_equation_advanced_coherent "
+    "GL_KHR_sample_shading GL_KHR_robustness GL_KHR_robust_buffer_access_behavior "
+    "GL_EXT_buffer_storage GL_EXT_polygon_offset_clamp GL_EXT_YUV_target "
+    "GL_QCOM_alpha_test GL_QCOM_tiled_rendering GL_QCOM_extended_get GL_QCOM_extended_get2 "
+    "GL_QCOM_binning_control GL_QCOM_driver_control "
+    "GL_QCOM_framebuffer_fbo_completeness_query GL_QCOM_motion_estimation "
+    "GL_QCOM_shading_rate GL_QCOM_texture_foveated GL_QCOM_texture_foveated2 "
+    "GL_QCOM_texture_foveated_subsampled_layout "
+    "GL_QCOM_shader_framebuffer_fetch_non_coherent GL_QCOM_YUV_texture_gather "
+    "GL_OVR_multiview GL_OVR_multiview2 GL_OVR_multiview_multisampled_render_to_texture "
+    "GL_ANDROID_extension_pack_es31a";
+
+static const char kGlExtensionsAdreno6xx[] =
+    "GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_sync GL_OES_vertex_half_float "
+    "GL_OES_framebuffer_object GL_OES_rgb8_rgba8 GL_OES_compressed_ETC1_RGB8_texture "
+    "GL_AMD_compressed_ATC_texture GL_KHR_texture_compression_astc_ldr "
+    "GL_KHR_texture_compression_astc_hdr GL_OES_texture_compression_astc GL_OES_texture_npot "
+    "GL_OES_texture_float GL_OES_texture_half_float GL_OES_texture_half_float_linear "
+    "GL_OES_texture_float_linear GL_OES_element_index_uint GL_OES_standard_derivatives "
+    "GL_OES_packed_depth_stencil GL_OES_depth24 GL_OES_depth32 GL_OES_depth_texture "
+    "GL_OES_depth_texture_cube_map GL_OES_texture_stencil8 GL_OES_texture_3D "
+    "GL_OES_get_program_binary GL_OES_mapbuffer GL_OES_texture_storage "
+    "GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 "
+    "GL_OES_texture_format_BGRA8888 GL_OES_draw_texture GL_OES_copy_image GL_EXT_sRGB "
+    "GL_EXT_sRGB_write_control GL_EXT_multisampled_render_to_texture "
+    "GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_disjoint_timer_query "
+    "GL_EXT_texture_sRGB_decode GL_EXT_robustness GL_EXT_texture_buffer "
+    "GL_EXT_texture_border_clamp GL_EXT_texture_cube_map_array GL_EXT_draw_buffers_indexed "
+    "GL_EXT_geometry_shader GL_EXT_gpu_shader5 GL_EXT_shader_io_blocks "
+    "GL_EXT_tessellation_shader GL_EXT_primitive_bounding_box GL_EXT_protected_textures "
+    "GL_KHR_blend_equation_advanced GL_KHR_blend_equation_advanced_coherent "
+    "GL_KHR_sample_shading GL_KHR_robustness GL_KHR_robust_buffer_access_behavior "
+    "GL_EXT_buffer_storage GL_EXT_polygon_offset_clamp GL_EXT_YUV_target "
+    "GL_QCOM_alpha_test GL_QCOM_tiled_rendering GL_QCOM_extended_get GL_QCOM_extended_get2 "
+    "GL_QCOM_binning_control GL_QCOM_driver_control "
+    "GL_QCOM_framebuffer_fbo_completeness_query "
+    "GL_QCOM_shader_framebuffer_fetch_non_coherent GL_OVR_multiview GL_OVR_multiview2 "
+    "GL_ANDROID_extension_pack_es31a";
+
+static const char kGlExtensionsMaliValhall[] =
+    "GL_EXT_debug_marker GL_ARM_rgba8 GL_ARM_mali_shader_binary GL_OES_depth24 "
+    "GL_OES_depth_texture GL_OES_depth_texture_cube_map GL_OES_packed_depth_stencil "
+    "GL_OES_rgb8_rgba8 GL_EXT_read_format_bgra GL_OES_compressed_paletted_texture "
+    "GL_OES_compressed_ETC1_RGB8_texture GL_OES_standard_derivatives GL_OES_EGL_image "
+    "GL_OES_EGL_image_external GL_OES_EGL_image_external_essl3 GL_OES_EGL_sync "
+    "GL_OES_texture_npot GL_OES_vertex_half_float GL_OES_required_internalformat "
+    "GL_OES_vertex_array_object GL_OES_mapbuffer GL_EXT_texture_format_BGRA8888 "
+    "GL_EXT_texture_rg GL_EXT_texture_type_2_10_10_REV GL_OES_texture_compression_astc "
+    "GL_KHR_texture_compression_astc_ldr GL_KHR_texture_compression_astc_hdr "
+    "GL_KHR_debug GL_EXT_occlusion_query_boolean "
+    "GL_OES_texture_storage_multisample_2d_array GL_OES_shader_image_atomic "
+    "GL_EXT_shadow_samplers GL_EXT_texture_storage GL_EXT_draw_buffers "
+    "GL_EXT_blend_minmax GL_EXT_discard_framebuffer GL_OES_get_program_binary "
+    "GL_OES_texture_3D GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_s3tc "
+    "GL_EXT_robustness GL_EXT_texture_sRGB_decode GL_OES_texture_stencil8 "
+    "GL_EXT_shader_pixel_local_storage GL_ARM_shader_framebuffer_fetch "
+    "GL_ARM_shader_framebuffer_fetch_depth_stencil "
+    "GL_ARM_texture_unnormalized_coordinates GL_KHR_blend_equation_advanced "
+    "GL_KHR_blend_equation_advanced_coherent GL_OES_sample_shading "
+    "GL_OES_sample_variables GL_OES_shader_multisample_interpolation "
+    "GL_EXT_multisampled_render_to_texture GL_EXT_multisampled_render_to_texture2 "
+    "GL_KHR_robustness GL_KHR_robust_buffer_access_behavior GL_EXT_color_buffer_float "
+    "GL_EXT_color_buffer_half_float GL_EXT_geometry_shader GL_EXT_gpu_shader5 "
+    "GL_EXT_primitive_bounding_box GL_EXT_shader_io_blocks GL_EXT_tessellation_shader "
+    "GL_EXT_texture_buffer GL_EXT_texture_cube_map_array GL_OES_copy_image "
+    "GL_EXT_draw_buffers_indexed GL_EXT_buffer_storage GL_EXT_clip_cull_distance "
+    "GL_EXT_protected_textures GL_OVR_multiview GL_OVR_multiview2 "
+    "GL_OVR_multiview_multisampled_render_to_texture GL_ANDROID_extension_pack_es31a";
+
 std::string filterGlExtensions(const char* real) {
-    if (!real || !*real) return {};
+    // 1. Authoritative: check custom extensions file configured in profile
+    std::string custom = get("GLExtensions");
+    if (custom.empty()) custom = get("gl_extensions");
+    if (!custom.empty()) return custom;
+
+    // 2. Check spoofed GPU vendor and renderer
     std::string vendor   = get("GLVendor");
     std::string renderer = get("GLRender");
-    bool mali = vendor.find("ARM") != std::string::npos &&
-                renderer.find("Mali") != std::string::npos;
-    if (mali) return real;
 
-    std::string out;
-    const char* p = real;
-    while (*p) {
-        while (*p == ' ') ++p;
-        const char* start = p;
-        while (*p && *p != ' ') ++p;
-        std::string tok(start, p - start);
-        if (tok.empty()) continue;
-        if (tok.rfind("GL_MALI_", 0) == 0) continue;
-        if (!out.empty()) out += ' ';
-        out += tok;
+    // If native Mali-G72 on Exynos 9810 and not spoofing other GPU, keep real hardware extensions
+    if (vendor.empty() || (vendor.find("ARM") != std::string::npos && renderer.find("Mali-G72") != std::string::npos)) {
+        return real ? std::string(real) : std::string();
     }
-    return out;
+
+    // If spoofing Qualcomm / Adreno
+    if (vendor.find("Qualcomm") != std::string::npos || renderer.find("Adreno") != std::string::npos) {
+        if (renderer.find("740") != std::string::npos || renderer.find("730") != std::string::npos || renderer.find("7") != std::string::npos) {
+            return kGlExtensionsAdreno740;
+        }
+        return kGlExtensionsAdreno6xx;
+    }
+
+    // If spoofing modern ARM Mali (e.g. Mali-G78, Mali-G710, Mali-G68, Mali-G57, Mali-G52)
+    if (vendor.find("ARM") != std::string::npos || renderer.find("Mali") != std::string::npos) {
+        return kGlExtensionsMaliValhall;
+    }
+
+    return real ? std::string(real) : std::string();
 }
 
 long long uptimeOffsetMs() {

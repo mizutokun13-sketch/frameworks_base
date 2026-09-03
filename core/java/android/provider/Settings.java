@@ -7492,9 +7492,9 @@ public final class Settings {
                 }
                 try {
                     java.io.File[] files = new java.io.File[] {
-                        new java.io.File("/data/vendor/hwcfg/active/Utils/androidid"),
                         new java.io.File("/data/vendor/hwcfg/Utils/androidid"),
-                        new java.io.File("/data/data/com.wantphone.wantspoof/files/Utils/androidid")
+                        new java.io.File("/data/vendor/hwcfg/Utils/android_id"),
+                        new java.io.File("/data/vendor/hwcfg/androidid")
                     };
                     for (java.io.File f : files) {
                         if (f.exists() && f.canRead()) {

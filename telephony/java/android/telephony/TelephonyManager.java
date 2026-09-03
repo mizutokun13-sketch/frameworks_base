@@ -2052,16 +2052,16 @@ public class TelephonyManager {
     }
 
     private static String getTelephonySpoofValue(String key) {
-        String val = android.os.SystemProperties.get("sys.hwcfg." + key,
-                android.os.SystemProperties.get("persist.sys.hwcfg." + key,
-                android.os.SystemProperties.get("gsm.hwcfg." + key, "")));
+        String val = android.os.SystemProperties.get("sys.hwcfg." + key, "");
+        if (val != null && !val.isEmpty()) return val;
+
+        val = android.os.SystemProperties.get("persist.sys.hwcfg." + key, "");
         if (val != null && !val.isEmpty()) return val;
 
         try {
             java.io.File[] files = new java.io.File[] {
-                new java.io.File("/data/vendor/hwcfg/active/Utils/" + key),
                 new java.io.File("/data/vendor/hwcfg/Utils/" + key),
-                new java.io.File("/data/data/com.wantphone.wantspoof/files/Utils/" + key)
+                new java.io.File("/data/vendor/hwcfg/" + key)
             };
             for (java.io.File f : files) {
                 if (f.exists() && f.canRead()) {
