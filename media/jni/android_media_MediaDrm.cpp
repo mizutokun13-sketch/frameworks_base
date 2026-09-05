@@ -68,6 +68,31 @@ static bool getSpoofDrmUnique(Vector<uint8_t>* value) {
     return !value->empty();
 }
 
+static bool getSpoofDrmPropertyString(const String8& name, String8& value) {
+    if (getuid() < AID_APP_START) return false;
+    if (name == String8("securityLevel") || name == String8("maxSecurityLevel")) {
+        char prop[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.hwcfg.drm.security_level", prop, "");
+        if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.security_level", prop, "");
+        if (prop[0] != 0) {
+            value = String8(prop);
+        } else {
+            value = String8("L1");
+        }
+        return true;
+    }
+    if (name == String8("systemId")) {
+        char prop[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.hwcfg.drm.system_id", prop, "");
+        if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.system_id", prop, "");
+        if (prop[0] != 0) {
+            value = String8(prop);
+            return true;
+        }
+    }
+    return false;
+}
+
 #define FIND_CLASS(var, className) \
     var = env->FindClass(className); \
     LOG_FATAL_IF(! (var), "Unable to find class %s", className);
@@ -1586,6 +1611,15 @@ static jint android_media_MediaDrm_getSecurityLevel(JNIEnv *env,
 
     Vector<uint8_t> sessionId(JByteArrayToVector(env, jsessionId));
 
+    if (getuid() >= AID_APP_START) {
+        char prop[PROPERTY_VALUE_MAX] = {0};
+        property_get("sys.hwcfg.drm.security_level", prop, "");
+        if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.security_level", prop, "");
+        if (prop[0] == 0 || strcmp(prop, "L1") == 0) {
+            return gSecurityLevels.kSecurityLevelHwSecureAll;
+        }
+    }
+
     DrmPlugin::SecurityLevel level = DrmPlugin::kSecurityLevelUnknown;
 
     status_t err = drm->getSecurityLevel(sessionId, &level);
@@ -1686,6 +1720,10 @@ static jstring android_media_MediaDrm_getPropertyString(
 
     String8 name = JStringToString8(env, jname);
     String8 value;
+
+    if (getSpoofDrmPropertyString(name, value)) {
+        return env->NewStringUTF(value.string());
+    }
 
     status_t err = drm->getPropertyString(name, value);
 

@@ -7484,17 +7484,17 @@ public final class Settings {
             }
 
             if (ANDROID_ID.equals(name)) {
-                String spoofId = android.os.SystemProperties.get("sys.hwcfg.androidid",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.androidid",
-                        android.os.SystemProperties.get("gsm.hwcfg.androidid", "")));
+                String spoofId = android.os.SystemProperties.get("sys.hwcfg.android_id", "");
+                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id", "");
+                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.androidid", "");
+                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.androidid", "");
                 if (spoofId != null && !spoofId.isEmpty()) {
                     return spoofId;
                 }
                 try {
                     java.io.File[] files = new java.io.File[] {
-                        new java.io.File("/data/vendor/hwcfg/Utils/androidid"),
-                        new java.io.File("/data/vendor/hwcfg/Utils/android_id"),
-                        new java.io.File("/data/vendor/hwcfg/androidid")
+                        new java.io.File("/data/vendor/hwcfg/android_id"),
+                        new java.io.File("/data/vendor/hwcfg/Utils/android_id")
                     };
                     for (java.io.File f : files) {
                         if (f.exists() && f.canRead()) {

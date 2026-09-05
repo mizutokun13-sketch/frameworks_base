@@ -1495,12 +1495,8 @@ public final class Display {
                 adjustSize(outSize, mDisplayInfo.rotation, rotation);
             }
             if (android.os.Process.myUid() >= 10000) {
-                String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
-                        android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
-                String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
-                        android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+                String sW = getScreenSpoofProp("screen_w");
+                String sH = getScreenSpoofProp("screen_h");
                 if (!sW.isEmpty() && !sH.isEmpty()) {
                     try {
                         int w = Integer.parseInt(sW);
@@ -1592,17 +1588,22 @@ public final class Display {
         }
     }
 
+    private static String getScreenSpoofProp(String key) {
+        String val = android.os.SystemProperties.get("sys.hwcfg." + key, "");
+        if (!val.isEmpty()) return val;
+        val = android.os.SystemProperties.get("persist.sys.hwcfg." + key, "");
+        if (!val.isEmpty()) return val;
+        String dotKey = key.replace('_', '.');
+        val = android.os.SystemProperties.get("sys.hwcfg." + dotKey, "");
+        if (!val.isEmpty()) return val;
+        return android.os.SystemProperties.get("persist.sys.hwcfg." + dotKey, "");
+    }
+
     private static void applyHwcfgRealMetrics(DisplayMetrics outMetrics) {
         if (outMetrics == null || android.os.Process.myUid() < android.os.Process.FIRST_APPLICATION_UID) return;
-        String sDpi = android.os.SystemProperties.get("sys.hwcfg.screen.dpi",
-                android.os.SystemProperties.get("persist.sys.hwcfg.screen.dpi",
-                android.os.SystemProperties.get("gsm.hwcfg.screen.dpi", "")));
-        String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
-                android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
-                android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
-        String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
-                android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
-                android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+        String sDpi = getScreenSpoofProp("screen_dpi");
+        String sW = getScreenSpoofProp("screen_w");
+        String sH = getScreenSpoofProp("screen_h");
 
         if (!sDpi.isEmpty()) {
             try {
@@ -2008,12 +2009,8 @@ public final class Display {
          */
         public int getPhysicalWidth() {
             if (android.os.Process.myUid() >= 10000) {
-                String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
-                        android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
-                String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
-                        android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+                String sW = getScreenSpoofProp("screen_w");
+                String sH = getScreenSpoofProp("screen_h");
                 try {
                     int w = Integer.parseInt(sW);
                     int h = Integer.parseInt(sH);
@@ -2037,12 +2034,8 @@ public final class Display {
          */
         public int getPhysicalHeight() {
             if (android.os.Process.myUid() >= 10000) {
-                String sW = android.os.SystemProperties.get("sys.hwcfg.screen.w",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.w",
-                        android.os.SystemProperties.get("gsm.hwcfg.screen.w", "")));
-                String sH = android.os.SystemProperties.get("sys.hwcfg.screen.h",
-                        android.os.SystemProperties.get("persist.sys.hwcfg.screen.h",
-                        android.os.SystemProperties.get("gsm.hwcfg.screen.h", "")));
+                String sW = getScreenSpoofProp("screen_w");
+                String sH = getScreenSpoofProp("screen_h");
                 try {
                     int w = Integer.parseInt(sW);
                     int h = Integer.parseInt(sH);

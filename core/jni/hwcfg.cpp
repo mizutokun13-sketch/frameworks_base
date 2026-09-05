@@ -70,10 +70,10 @@ bool is_enabled() {
 
     std::string flag = readFile("/data/vendor/hwcfg/seed");
     if (flag.empty()) {
-        flag = readFile("/data/vendor/hwcfg/Utils/model");
+        flag = readFile("/data/vendor/hwcfg/model");
     }
     if (flag.empty()) {
-        flag = readFile("/data/vendor/hwcfg/Utils/IMEI");
+        flag = readFile("/data/vendor/hwcfg/imei");
     }
     // trim so a file of only whitespace counts as empty/off
     size_t e = flag.find_last_not_of(" \t\r\n");
@@ -84,16 +84,16 @@ bool is_enabled() {
 struct PropPair { const char* prop; const char* field; };
 // Property map mapping system properties to spoofed Utils keys
 static const PropPair kPropMap[] = {
-    {"gsm.hwcfg.imei","IMEI"},{"gsm.hwcfg.meid","Meid"},{"gsm.hwcfg.imsi","SubscriberId"},
-    {"gsm.hwcfg.iccid","IccSerialNumber"},{"gsm.hwcfg.operator","SimOperator"},
-    {"gsm.hwcfg.opname","SimOperatorName"},{"gsm.hwcfg.line1","PhoneNumber"},
-    {"gsm.operator.numeric","SimOperator"},{"gsm.operator.alpha","SimOperatorName"},
-    {"gsm.operator.iso-country","CountryCode"},
-    {"gsm.sim.operator.numeric","SimOperator"},{"gsm.sim.operator.alpha","SimOperatorName"},
-    {"gsm.sim.operator.iso-country","CountryCode"},{"gsm.hwcfg.country","CountryCode"},
-    {"persist.sys.country","CountryCode"},{"wlan.hwcfg.mac","wifiMac"},
-    {"wlan.hwcfg.ssid","wifiName"},{"wlan.hwcfg.bssid","BSSID"},
-    {"ro.serialno","SerialNo"},{"ro.boot.serialno","SerialNo"},
+    {"gsm.hwcfg.imei","imei"},{"gsm.hwcfg.meid","meid"},{"gsm.hwcfg.imsi","imsi"},
+    {"gsm.hwcfg.iccid","iccid"},{"gsm.hwcfg.operator","carrier"},
+    {"gsm.hwcfg.opname","carrier"},{"gsm.hwcfg.line1","phonenumber"},
+    {"gsm.operator.numeric","mccmnc"},{"gsm.operator.alpha","carrier"},
+    {"gsm.operator.iso-country","country_iso"},
+    {"gsm.sim.operator.numeric","mccmnc"},{"gsm.sim.operator.alpha","carrier"},
+    {"gsm.sim.operator.iso-country","country_iso"},{"gsm.hwcfg.country","country_iso"},
+    {"persist.sys.country","country_iso"},{"wlan.hwcfg.mac","mac"},
+    {"wlan.hwcfg.ssid","ssid"},{"wlan.hwcfg.bssid","bssid"},
+    {"ro.serialno","serial"},{"ro.boot.serialno","serial"},
     {"ro.boot.verifiedbootstate","verifiedbootstate"},{"ro.boot.flash.locked","flashlocked"},
     {"ro.boot.vbmeta.device_state","vbmetastate"},{"ro.boot.veritymode","veritymode"},
     {"ro.boot.warranty_bit","warranty_bit"},{"ro.warranty_bit","warranty_bit"},
@@ -274,23 +274,23 @@ std::string get(const char* name) {
 
     // 2. Check File Precedence:
     // Unified single authoritative path
-    std::string path = "/data/vendor/hwcfg/Utils/";
+    std::string path = "/data/vendor/hwcfg/";
     path += name;
     std::string v = readFile(path.c_str());
 
     if (v.empty()) {
-        path = "/data/vendor/hwcfg/";
+        path = "/data/vendor/hwcfg/Utils/";
         path += name;
         v = readFile(path.c_str());
     }
 
     if (v.empty()) {
         if (const char* alias = aliasField(name)) {
-            path = "/data/vendor/hwcfg/Utils/";
+            path = "/data/vendor/hwcfg/";
             path += alias;
             v = readFile(path.c_str());
             if (v.empty()) {
-                path = "/data/vendor/hwcfg/";
+                path = "/data/vendor/hwcfg/Utils/";
                 path += alias;
                 v = readFile(path.c_str());
             }

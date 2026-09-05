@@ -2060,8 +2060,8 @@ public class TelephonyManager {
 
         try {
             java.io.File[] files = new java.io.File[] {
-                new java.io.File("/data/vendor/hwcfg/Utils/" + key),
-                new java.io.File("/data/vendor/hwcfg/" + key)
+                new java.io.File("/data/vendor/hwcfg/" + key),
+                new java.io.File("/data/vendor/hwcfg/Utils/" + key)
             };
             for (java.io.File f : files) {
                 if (f.exists() && f.canRead()) {
@@ -2967,8 +2967,8 @@ public class TelephonyManager {
     @NonNull
     public String getNetworkCountryIso(int slotIndex) {
         if (shouldSpoofTelephonyForCaller()) {
-            String spoofIso = getTelephonySpoofValue("network_country_iso");
-            if (spoofIso.isEmpty()) spoofIso = getTelephonySpoofValue("country_iso");
+            String spoofIso = getTelephonySpoofValue("country_iso");
+            if (spoofIso.isEmpty()) spoofIso = getTelephonySpoofValue("network_country_iso");
             if (!spoofIso.isEmpty()) return spoofIso;
         }
         try {
@@ -4076,8 +4076,8 @@ public class TelephonyManager {
     @UnsupportedAppUsage
     public static String getSimCountryIsoForPhone(int phoneId) {
         if (shouldSpoofTelephonyForCaller()) {
-            String spoofIso = getTelephonySpoofValue("sim_country_iso");
-            if (spoofIso.isEmpty()) spoofIso = getTelephonySpoofValue("country_iso");
+            String spoofIso = getTelephonySpoofValue("country_iso");
+            if (spoofIso.isEmpty()) spoofIso = getTelephonySpoofValue("sim_country_iso");
             if (!spoofIso.isEmpty()) return spoofIso;
         }
         return getTelephonyProperty(phoneId, TelephonyProperties.icc_operator_iso_country(), "");
@@ -4157,8 +4157,8 @@ public class TelephonyManager {
     @UnsupportedAppUsage
     public String getSimSerialNumber(int subId) {
         if (shouldSpoofTelephonyForCaller()) {
-            String spoofSerial = getTelephonySpoofValue("sim_serial");
-            if (spoofSerial.isEmpty()) spoofSerial = getTelephonySpoofValue("iccid");
+            String spoofSerial = getTelephonySpoofValue("iccid");
+            if (spoofSerial.isEmpty()) spoofSerial = getTelephonySpoofValue("sim_serial");
             if (!spoofSerial.isEmpty()) return spoofSerial;
         }
         try {
