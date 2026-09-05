@@ -1829,18 +1829,23 @@ class ContextImpl extends Context {
                 // protecting themselves with signature permission
                 intent.prepareToEnterProcess(ActivityThread.isProtectedBroadcast(intent),
                         getAttributionSource());
-                if (android.os.Process.myUid() >= 10000 && Intent.ACTION_BATTERY_CHANGED.equals(intent.getAction())) {
+                if (android.os.Process.myUid() >= 10000
+                        && !"com.android.systemui".equals(mBasePackageName)
+                        && !"com.android.settings".equals(mBasePackageName)
+                        && Intent.ACTION_BATTERY_CHANGED.equals(intent.getAction())) {
                     String sLevel = android.os.SystemProperties.get("sys.hwcfg.batt.level",
                             android.os.SystemProperties.get("persist.sys.hwcfg.batt.level",
                             android.os.SystemProperties.get("gsm.hwcfg.batt.level", "")));
                     if (!sLevel.isEmpty()) {
                         try {
                             int level = Integer.parseInt(sLevel);
-                            intent.putExtra(android.os.BatteryManager.EXTRA_LEVEL, level);
-                            intent.putExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
-                            intent.putExtra(android.os.BatteryManager.EXTRA_STATUS,
-                                    level >= 100 ? android.os.BatteryManager.BATTERY_STATUS_FULL
-                                            : android.os.BatteryManager.BATTERY_STATUS_CHARGING);
+                            if (level > 0) {
+                                intent.putExtra(android.os.BatteryManager.EXTRA_LEVEL, level);
+                                intent.putExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+                                intent.putExtra(android.os.BatteryManager.EXTRA_STATUS,
+                                        level >= 100 ? android.os.BatteryManager.BATTERY_STATUS_FULL
+                                                : android.os.BatteryManager.BATTERY_STATUS_CHARGING);
+                            }
                         } catch (Exception ignored) {}
                     }
                     String sTemp = android.os.SystemProperties.get("sys.hwcfg.batt.temp",

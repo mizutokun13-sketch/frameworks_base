@@ -2926,6 +2926,9 @@ public class TelephonyManager {
      */
     @UnsupportedAppUsage
     public boolean isNetworkRoaming(int subId) {
+        if (shouldSpoofTelephonyForCaller()) {
+            return false;
+        }
         int phoneId = SubscriptionManager.getPhoneId(subId);
         return getTelephonyProperty(phoneId, TelephonyProperties.operator_is_roaming(), false);
     }
@@ -3586,6 +3589,14 @@ public class TelephonyManager {
     // FIXME Input argument slotIndex should be of type int
     @UnsupportedAppUsage
     public boolean hasIccCard(int slotIndex) {
+        if (shouldSpoofTelephonyForCaller()) {
+            String spoofCarrier = getTelephonySpoofValue("carrier");
+            String spoofImei = getTelephonySpoofValue("imei");
+            String spoofMcc = getTelephonySpoofValue("mccmnc");
+            if (!spoofCarrier.isEmpty() || !spoofImei.isEmpty() || !spoofMcc.isEmpty()) {
+                return true;
+            }
+        }
 
         try {
             ITelephony telephony = getITelephony();

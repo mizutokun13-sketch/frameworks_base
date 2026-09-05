@@ -778,27 +778,20 @@ public final class BatteryService extends SystemService {
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY
                 | Intent.FLAG_RECEIVER_REPLACE_PENDING);
 
-        int batteryLevel = mHealthInfo.batteryLevel;
-        int batteryVoltage = mHealthInfo.batteryVoltageMillivolts;
-        int batteryTemp = mHealthInfo.batteryTemperatureTenthsCelsius;
-        batteryLevel = getHwcfgInt("batt.level", batteryLevel);
-        batteryVoltage = getHwcfgInt("batt.volt", batteryVoltage);
-        batteryTemp = getHwcfgInt("batt.temp", batteryTemp);
-
-        int icon = getIconLocked(batteryLevel);
+        int icon = getIconLocked(mHealthInfo.batteryLevel);
 
         intent.putExtra(BatteryManager.EXTRA_SEQUENCE, mSequence);
         intent.putExtra(BatteryManager.EXTRA_STATUS, mHealthInfo.batteryStatus);
         intent.putExtra(BatteryManager.EXTRA_HEALTH, mHealthInfo.batteryHealth);
         intent.putExtra(BatteryManager.EXTRA_PRESENT, mHealthInfo.batteryPresent);
-        intent.putExtra(BatteryManager.EXTRA_LEVEL, batteryLevel);
+        intent.putExtra(BatteryManager.EXTRA_LEVEL, mHealthInfo.batteryLevel);
         intent.putExtra(BatteryManager.EXTRA_BATTERY_LOW, mSentLowBatteryBroadcast);
         intent.putExtra(BatteryManager.EXTRA_SCALE, BATTERY_SCALE);
         intent.putExtra(BatteryManager.EXTRA_ICON_SMALL, icon);
         intent.putExtra(BatteryManager.EXTRA_PLUGGED, mPlugType);
-        intent.putExtra(BatteryManager.EXTRA_VOLTAGE, batteryVoltage);
+        intent.putExtra(BatteryManager.EXTRA_VOLTAGE, mHealthInfo.batteryVoltageMillivolts);
         intent.putExtra(
-                BatteryManager.EXTRA_TEMPERATURE, batteryTemp);
+                BatteryManager.EXTRA_TEMPERATURE, mHealthInfo.batteryTemperatureTenthsCelsius);
         intent.putExtra(BatteryManager.EXTRA_TECHNOLOGY, mHealthInfo.batteryTechnology);
         intent.putExtra(BatteryManager.EXTRA_INVALID_CHARGER, mInvalidCharger);
         intent.putExtra(
@@ -823,20 +816,16 @@ public final class BatteryService extends SystemService {
     private void sendBatteryLevelChangedIntentLocked() {
         Bundle event = new Bundle();
         long now = SystemClock.elapsedRealtime();
-        int batteryLevel = getHwcfgInt("batt.level", mHealthInfo.batteryLevel);
-        int batteryVoltage = getHwcfgInt("batt.volt", mHealthInfo.batteryVoltageMillivolts);
-        int batteryTemp = getHwcfgInt("batt.temp",
-                mHealthInfo.batteryTemperatureTenthsCelsius);
         event.putInt(BatteryManager.EXTRA_SEQUENCE, mSequence);
         event.putInt(BatteryManager.EXTRA_STATUS, mHealthInfo.batteryStatus);
         event.putInt(BatteryManager.EXTRA_HEALTH, mHealthInfo.batteryHealth);
         event.putBoolean(BatteryManager.EXTRA_PRESENT, mHealthInfo.batteryPresent);
-        event.putInt(BatteryManager.EXTRA_LEVEL, batteryLevel);
+        event.putInt(BatteryManager.EXTRA_LEVEL, mHealthInfo.batteryLevel);
         event.putBoolean(BatteryManager.EXTRA_BATTERY_LOW, mSentLowBatteryBroadcast);
         event.putInt(BatteryManager.EXTRA_SCALE, BATTERY_SCALE);
         event.putInt(BatteryManager.EXTRA_PLUGGED, mPlugType);
-        event.putInt(BatteryManager.EXTRA_VOLTAGE, batteryVoltage);
-        event.putInt(BatteryManager.EXTRA_TEMPERATURE, batteryTemp);
+        event.putInt(BatteryManager.EXTRA_VOLTAGE, mHealthInfo.batteryVoltageMillivolts);
+        event.putInt(BatteryManager.EXTRA_TEMPERATURE, mHealthInfo.batteryTemperatureTenthsCelsius);
         event.putInt(BatteryManager.EXTRA_CHARGE_COUNTER, mHealthInfo.batteryChargeCounterUah);
         event.putLong(BatteryManager.EXTRA_EVENT_TIMESTAMP, now);
 
@@ -1436,37 +1425,11 @@ public final class BatteryService extends SystemService {
     private final class BatteryPropertiesRegistrar extends IBatteryPropertiesRegistrar.Stub {
         @Override
         public int getProperty(int id, final BatteryProperty prop) throws RemoteException {
-            if (id == BatteryManager.BATTERY_PROPERTY_CAPACITY) {
-                int level = getHwcfgInt("batt.level", -1);
-                if (level >= 0) {
-                    prop.setLong(level);
-                    return 0;
-                }
-            }
             return mHealthServiceWrapper.getProperty(id, prop);
         }
         @Override
         public void scheduleUpdate() throws RemoteException {
             mHealthServiceWrapper.scheduleUpdate();
-        }
-    }
-
-    private static int getHwcfgInt(String subKey, int def) {
-        String value = SystemProperties.get("sys.hwcfg." + subKey, "");
-        if (value.isEmpty()) {
-            value = SystemProperties.get("persist.sys.hwcfg." + subKey, "");
-        }
-        if (value.isEmpty()) {
-            value = SystemProperties.get("gsm.hwcfg." + subKey, "");
-        }
-        if (value.isEmpty()) {
-            value = SystemProperties.get(subKey, "");
-        }
-        if (value.isEmpty()) return def;
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return def;
         }
     }
 

@@ -113,6 +113,7 @@ static const PropPair kPropMap[] = {
     {"ro.boot.em.model","model"},{"ro.build.description","description"},
     {"ro.system.build.description","description"},{"ro.vendor.build.description","description"},
     {"ro.bootimage.build.description","description"},{"ro.product.board","board"},
+    {"ro.hardware","hardware"},{"ro.boot.hardware","hardware"},{"ro.board.platform","platform"},
     {"ro.hardware.chipname","socmodel"},{"ro.soc.model","socmodel"},
     {"ro.soc.manufacturer","socmaker"},{"gsm.version.baseband","baseband"},
     {"ro.bootloader","bootloader"},{"ro.boot.bootloader","bootloader"},
@@ -413,6 +414,44 @@ std::string lookupProp(const char* key) {
             !strcmp(key, "persist.sys.usb.config")) return std::string("mtp");
         if (!strcmp(key, "init.svc.adbd")) return std::string("stopped");
         if (!strcmp(key, "persist.service.adb.enable")) return std::string("0");
+    }
+
+    // SIM & Roaming properties
+    if (!strcmp(key, "gsm.sim.state")) {
+        std::string s = get("sim_state");
+        return s.empty() ? std::string("LOADED") : s;
+    }
+    if (!strcmp(key, "gsm.operator.isroaming")) {
+        return std::string("false");
+    }
+
+    // Universal Partition-Specific Identity Matcher
+    if (!strncmp(key, "ro.product.", 11)) {
+        const char* dot = strrchr(key, '.');
+        if (dot) {
+            if (!strcmp(dot, ".model")) return get("model");
+            if (!strcmp(dot, ".brand")) return get("brand");
+            if (!strcmp(dot, ".manufacturer")) {
+                std::string m = get("manufacturer");
+                return m.empty() ? get("brand") : m;
+            }
+            if (!strcmp(dot, ".device")) return get("device");
+            if (!strcmp(dot, ".name")) return get("name");
+        }
+    }
+
+    if (strstr(key, ".build.fingerprint")) return get("fingerprint");
+    if (strstr(key, ".build.id")) return get("buildid");
+    if (strstr(key, ".build.display.id")) return get("displayid");
+    if (strstr(key, ".build.version.incremental")) return get("incremental");
+    if (strstr(key, ".build.version.security_patch")) return get("securitypatch");
+
+    if (!strcmp(key, "ro.bootloader") || !strcmp(key, "ro.boot.bootloader")) {
+        std::string b = get("bootloader");
+        if (!b.empty()) return b;
+        b = get("incremental");
+        if (!b.empty()) return b;
+        return get("buildid");
     }
 
     for (const auto& p : kPropMap)

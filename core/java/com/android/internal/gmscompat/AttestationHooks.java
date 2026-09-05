@@ -201,6 +201,24 @@ public final class AttestationHooks {
      * Nếu không có cấu hình tùy biến -> Giữ nguyên giá trị mặc định của hệ thống ROM.
      */
     private static void spoofAppBuildFields(Context context) {
+        // Override Java System.getProperty("os.version") and "os.arch" so apps see spoofed kernel
+        try {
+            String unameRelease = getHwcfgValue("uname.release");
+            if (TextUtils.isEmpty(unameRelease)) {
+                unameRelease = readFromFile(new File("/data/vendor/hwcfg/uname.release"));
+            }
+            if (!TextUtils.isEmpty(unameRelease)) {
+                System.setProperty("os.version", unameRelease.trim());
+            }
+            String unameMachine = getHwcfgValue("uname.machine");
+            if (TextUtils.isEmpty(unameMachine)) {
+                unameMachine = readFromFile(new File("/data/vendor/hwcfg/uname.machine"));
+            }
+            if (!TextUtils.isEmpty(unameMachine)) {
+                System.setProperty("os.arch", unameMachine.trim());
+            }
+        } catch (Throwable ignored) {}
+
         // 1. Đọc profile JSON thống nhất nếu có
         File unifiedProfile = new File("/data/vendor/hwcfg/profile.json");
         if (unifiedProfile.exists()) {
@@ -220,6 +238,12 @@ public final class AttestationHooks {
                         } else {
                             setBuildField(k.toUpperCase(), v);
                         }
+                    }
+                    if (!obj.has("BOOTLOADER") && !obj.has("bootloader")) {
+                        String bl = obj.optString("INCREMENTAL", obj.optString("incremental", ""));
+                        if (TextUtils.isEmpty(bl)) bl = obj.optString("ID", obj.optString("buildid", ""));
+                        if (TextUtils.isEmpty(bl)) bl = getHwcfgValue("bootloader");
+                        if (!TextUtils.isEmpty(bl)) setBuildField("BOOTLOADER", bl);
                     }
                     return; // Đã nạp thành công từ unified profile
                 } catch (Exception e) {
@@ -246,6 +270,10 @@ public final class AttestationHooks {
         String displayId = getHwcfgValue("displayid");
         String incremental = getHwcfgValue("incremental");
         String baseband = getHwcfgValue("baseband");
+        String bootloader = getHwcfgValue("bootloader");
+        if (TextUtils.isEmpty(bootloader)) bootloader = getHwcfgValue("BOOTLOADER");
+        if (TextUtils.isEmpty(bootloader)) bootloader = incremental;
+        if (TextUtils.isEmpty(bootloader)) bootloader = buildId;
 
         // Chỉ ghi đè khi người dùng có cấu hình cụ thể
         if (!TextUtils.isEmpty(model)) setBuildField("MODEL", model);
@@ -259,7 +287,9 @@ public final class AttestationHooks {
         if (!TextUtils.isEmpty(secPatch)) setVersionField("SECURITY_PATCH", secPatch);
         if (!TextUtils.isEmpty(serial)) {
             setBuildField("SERIAL", serial);
-            setBuildField("BOOTLOADER", serial);
+        }
+        if (!TextUtils.isEmpty(bootloader)) {
+            setBuildField("BOOTLOADER", bootloader);
         }
         if (!TextUtils.isEmpty(board)) setBuildField("BOARD", board);
         if (!TextUtils.isEmpty(hardware)) setBuildField("HARDWARE", hardware);

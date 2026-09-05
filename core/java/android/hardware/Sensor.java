@@ -1432,4 +1432,14 @@ public final class Sensor {
     private void setId(int id) {
         mId = id;
     }
+
+    /** @hide */
+    void setName(String name) {
+        mName = name;
+    }
+
+    /** @hide */
+    void setVendor(String vendor) {
+        mVendor = vendor;
+    }
 }

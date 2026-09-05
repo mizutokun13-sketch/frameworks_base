@@ -152,9 +152,64 @@ public class SystemSensorManager extends SensorManager {
         mMotionSensorSimulator = new MotionSensorSimulator(context.getPackageName());
 
         // initialize the sensor list
+        boolean isUserApp = false;
+        if (context != null) {
+            String pkg = context.getPackageName();
+            int uid = android.os.Process.myUid();
+            if (uid >= 10000 && !"com.android.systemui".equals(pkg) && !"com.android.settings".equals(pkg)) {
+                isUserApp = true;
+            }
+        }
+
         for (int index = 0;; ++index) {
             Sensor sensor = new Sensor();
             if (!nativeGetSensorAtIndex(mNativeInstance, sensor, index)) break;
+
+            if (isUserApp) {
+                int type = sensor.getType();
+                String stringType = sensor.getStringType();
+                String name = sensor.getName();
+                String vendor = sensor.getVendor();
+
+                // 1. Filter out Samsung HRM (Heart Rate Monitor) sensors (MAX86915, etc.)
+                if (type == Sensor.TYPE_HEART_RATE || type == Sensor.TYPE_HEART_BEAT
+                        || (name != null && (name.contains("MAX86915") || name.contains("HRM")))
+                        || (stringType != null && (stringType.contains("hrm") || stringType.contains("bio")))) {
+                    continue;
+                }
+
+                // 2. Filter out Samsung SensorHub Platform (SSP / SContext) proprietary sensors
+                if ((name != null && (name.contains("SContext") || name.contains("SensorHub")))
+                        || (stringType != null && stringType.startsWith("com.samsung.sensor."))) {
+                    continue;
+                }
+
+                // 3. Filter out Barometer (pressure sensor) if spoofed device doesn't have it
+                if (type == Sensor.TYPE_PRESSURE
+                        || (name != null && name.toLowerCase().contains("barometer"))
+                        || (stringType != null && stringType.equals(Sensor.STRING_TYPE_PRESSURE))) {
+                    continue;
+                }
+
+                // 4. Sanitize Samsung vendor names for general sensors (Accelerometer, Gyro, Compass, Light, Prox)
+                if (vendor != null && vendor.toLowerCase().contains("samsung")) {
+                    if (name != null && (name.contains("LSM6") || name.contains("STM") || name.contains("LPS"))) {
+                        sensor.setVendor("STMicroelectronics");
+                    } else if (name != null && name.contains("AK")) {
+                        sensor.setVendor("Asahi Kasei Microdevices");
+                    } else if (name != null && name.contains("TMD")) {
+                        sensor.setVendor("AMS, Inc.");
+                    } else {
+                        sensor.setVendor("AOSP");
+                    }
+                }
+                if (name != null && name.startsWith("SAMSUNG ")) {
+                    sensor.setName(name.substring(8));
+                } else if (name != null && name.startsWith("Samsung ")) {
+                    sensor.setName(name.substring(8));
+                }
+            }
+
             mFullSensorsList.add(sensor);
             mHandleToSensor.put(sensor.getHandle(), sensor);
         }
