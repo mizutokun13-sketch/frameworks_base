@@ -35,6 +35,7 @@ import android.content.pm.split.SplitDependencyLoader;
 import android.content.res.AssetManager;
 import android.content.res.CompatibilityInfo;
 import android.content.res.Resources;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -42,6 +43,8 @@ import android.os.FileUtils;
 import android.os.GraphicsEnvironment;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.IInterface;
+import android.os.Parcel;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.StrictMode;
@@ -2168,7 +2171,143 @@ public final class LoadedApk {
             }
         }
 
+        private static boolean isAdvertisingIdService(ComponentName name, IBinder service) {
+            if (service != null) {
+                try {
+                    String descriptor = service.getInterfaceDescriptor();
+                    if ("com.google.android.gms.ads.identifier.internal.IAdvertisingIdService".equals(descriptor)) {
+                        return true;
+                    }
+                } catch (Throwable ignored) {}
+            }
+            if (name != null) {
+                String pkg = name.getPackageName();
+                String cls = name.getClassName();
+                if ("com.google.android.gms".equals(pkg)) {
+                    if (cls != null) {
+                        String lower = cls.toLowerCase();
+                        if (lower.contains("advertisingid") || lower.contains("ads.identifier") || lower.contains("adid") || lower.contains("ads")) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        private static String getSpoofedGaid() {
+            // 1. Try Settings.Global (advertising_id / gaid)
+            try {
+                ActivityThread at = ActivityThread.currentActivityThread();
+                Context ctx = (at != null) ? at.getApplication() : null;
+                if (ctx != null) {
+                    android.content.ContentResolver cr = ctx.getContentResolver();
+                    String g = Settings.Global.getString(cr, "advertising_id");
+                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    g = Settings.Global.getString(cr, "gaid");
+                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    g = Settings.Secure.getString(cr, "advertising_id");
+                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    g = Settings.Secure.getString(cr, "gaid");
+                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                }
+            } catch (Throwable ignored) {}
+
+            // 2. Try SystemProperties
+            try {
+                String spoofGaid = SystemProperties.get("ro.advertising.id", "");
+                if (spoofGaid.isEmpty()) {
+                    spoofGaid = SystemProperties.get("ro.google.aid", "");
+                }
+                if (spoofGaid.isEmpty()) {
+                    spoofGaid = SystemProperties.get("sys.hwcfg.gaid",
+                            SystemProperties.get("persist.sys.hwcfg.gaid", ""));
+                }
+                if (spoofGaid != null && !spoofGaid.trim().isEmpty()) {
+                    return spoofGaid.trim();
+                }
+            } catch (Throwable ignored) {}
+
+            // 3. Fallback to deterministic UUID seeded by android_id so every profile change automatically changes GAID
+            try {
+                ActivityThread at = ActivityThread.currentActivityThread();
+                Context ctx = (at != null) ? at.getApplication() : null;
+                if (ctx != null) {
+                    String aid = Settings.Secure.getString(ctx.getContentResolver(), Settings.Secure.ANDROID_ID);
+                    if (aid != null && !aid.trim().isEmpty()) {
+                        return java.util.UUID.nameUUIDFromBytes(("gaid_seed:" + aid.trim()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+                    }
+                }
+            } catch (Throwable ignored) {}
+
+            return java.util.UUID.randomUUID().toString();
+        }
+
+        private static IBinder wrapAdvertisingIdService(final IBinder origService) {
+            if (origService == null) return null;
+            return new Binder() {
+                @Override
+                public String getInterfaceDescriptor() {
+                    try {
+                        return origService.getInterfaceDescriptor();
+                    } catch (Exception e) {
+                        return "com.google.android.gms.ads.identifier.internal.IAdvertisingIdService";
+                    }
+                }
+
+                @Override
+                protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
+                    // Code 1: getId()
+                    // Code 3: getIdWithPackage(String packageName)
+                    if ((code == 1 || code == 3) && reply != null) {
+                        String spoofGaid = getSpoofedGaid();
+                        reply.writeNoException();
+                        reply.writeString(spoofGaid);
+                        return true;
+                    } else if ((code == 2 || code == 4) && reply != null) {
+                        // Code 2: isLimitedAdTracking(boolean defaultOptOut)
+                        // Code 4: isLimitedAdTrackingWithPackage(String packageName, boolean defaultOptOut)
+                        reply.writeNoException();
+                        reply.writeInt(0);
+                        return true;
+                    }
+                    return origService.transact(code, data, reply, flags);
+                }
+
+                @Override
+                public boolean pingBinder() {
+                    return origService.pingBinder();
+                }
+
+                @Override
+                public boolean isBinderAlive() {
+                    return origService.isBinderAlive();
+                }
+
+                @Override
+                public IInterface queryLocalInterface(String descriptor) {
+                    return null;
+                }
+
+                @Override
+                public void linkToDeath(DeathRecipient recipient, int flags) {
+                    try {
+                        origService.linkToDeath(recipient, flags);
+                    } catch (RemoteException ignored) {
+                    }
+                }
+
+                @Override
+                public boolean unlinkToDeath(DeathRecipient recipient, int flags) {
+                    return origService.unlinkToDeath(recipient, flags);
+                }
+            };
+        }
+
         public void doConnected(ComponentName name, IBinder service, boolean dead) {
+            if (isAdvertisingIdService(name, service)) {
+                service = wrapAdvertisingIdService(service);
+            }
             ServiceDispatcher.ConnectionInfo old;
             ServiceDispatcher.ConnectionInfo info;
 

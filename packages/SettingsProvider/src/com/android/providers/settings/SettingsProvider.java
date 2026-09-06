@@ -1430,8 +1430,25 @@ public class SettingsProvider extends ContentProvider {
 
         // Get the value.
         synchronized (mLock) {
-            return mSettingsRegistry.getSettingLocked(SETTINGS_TYPE_GLOBAL,
+            Setting setting = mSettingsRegistry.getSettingLocked(SETTINGS_TYPE_GLOBAL,
                     UserHandle.USER_SYSTEM, name);
+            if (("advertising_id".equals(name) || "gaid".equals(name)) && setting != null) {
+                String spoofGaid = android.os.SystemProperties.get("persist.sys.hwcfg.gaid",
+                        android.os.SystemProperties.get("sys.hwcfg.gaid", ""));
+                if (spoofGaid != null && !spoofGaid.trim().isEmpty()) {
+                    final String finalGaid = spoofGaid.trim();
+                    SettingsState globalSettings = mSettingsRegistry.getSettingsLocked(SETTINGS_TYPE_GLOBAL, UserHandle.USER_SYSTEM);
+                    if (globalSettings != null) {
+                        return globalSettings.new Setting(setting) {
+                            @Override
+                            public String getValue() {
+                                return finalGaid;
+                            }
+                        };
+                    }
+                }
+            }
+            return setting;
         }
     }
 
@@ -1645,8 +1662,28 @@ public class SettingsProvider extends ContentProvider {
 
         // Not the SSAID; do a straight lookup
         synchronized (mLock) {
-            return mSettingsRegistry.getSettingLocked(SETTINGS_TYPE_SECURE,
+            Setting setting = mSettingsRegistry.getSettingLocked(SETTINGS_TYPE_SECURE,
                     owningUserId, name);
+            if (Settings.Secure.ANDROID_ID.equals(name) && setting != null) {
+                String spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id",
+                        android.os.SystemProperties.get("sys.hwcfg.android_id", ""));
+                if (spoofId.isEmpty()) {
+                    spoofId = android.os.SystemProperties.get("ro.android_id", "");
+                }
+                if (spoofId != null && !spoofId.trim().isEmpty()) {
+                    final String finalSpoof = spoofId.trim();
+                    SettingsState secureSettings = mSettingsRegistry.getSettingsLocked(SETTINGS_TYPE_SECURE, owningUserId);
+                    if (secureSettings != null) {
+                        return secureSettings.new Setting(setting) {
+                            @Override
+                            public String getValue() {
+                                return finalSpoof;
+                            }
+                        };
+                    }
+                }
+            }
+            return setting;
         }
     }
 
@@ -1715,6 +1752,31 @@ public class SettingsProvider extends ContentProvider {
         // We have a special name when looking it up but want the world to see it as
         // "android_id".
         if (ssaidSetting != null) {
+            String spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id",
+                    android.os.SystemProperties.get("sys.hwcfg.android_id", ""));
+            if (spoofId.isEmpty()) {
+                spoofId = android.os.SystemProperties.get("ro.android_id", "");
+            }
+            if (spoofId != null && !spoofId.trim().isEmpty()) {
+                final String finalSpoof = spoofId.trim();
+                return settingsState.new Setting(ssaidSetting) {
+                    @Override
+                    public int getKey() {
+                        final int userId = getUserIdFromKey(super.getKey());
+                        return makeKey(SETTINGS_TYPE_SECURE, userId);
+                    }
+
+                    @Override
+                    public String getName() {
+                        return Settings.Secure.ANDROID_ID;
+                    }
+
+                    @Override
+                    public String getValue() {
+                        return finalSpoof;
+                    }
+                };
+            }
             return settingsState.new Setting(ssaidSetting) {
                 @Override
                 public int getKey() {

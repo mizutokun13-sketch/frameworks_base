@@ -7484,7 +7484,9 @@ public final class Settings {
             }
 
             if (ANDROID_ID.equals(name)) {
-                String spoofId = android.os.SystemProperties.get("sys.hwcfg.android_id", "");
+                String spoofId = android.os.SystemProperties.get("ro.android_id", "");
+                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("ro.boot.android_id", "");
+                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.android_id", "");
                 if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id", "");
                 if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.androidid", "");
                 if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.androidid", "");

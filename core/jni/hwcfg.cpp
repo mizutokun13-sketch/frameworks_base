@@ -161,6 +161,8 @@ static const PropPair kPropMap[] = {
     {"sys.hwcfg.screen.dpi","screenDpi"},{"persist.sys.hwcfg.screen.w","screenW"},
     {"persist.sys.hwcfg.screen.h","screenH"},{"persist.sys.hwcfg.screen.dpi","screenDpi"},
     {"ro.runtime.firstboot","firstboot"},
+    {"ro.advertising.id","gaid"},{"ro.google.aid","gaid"},
+    {"ro.android_id","android_id"},{"ro.boot.android_id","android_id"},
 };
 
 const char* aliasField(const char* name) {
@@ -196,6 +198,13 @@ const char* aliasField(const char* name) {
     if (!strcmp(name, "PhoneNumber")) return "phonenumber";
     if (!strcmp(name, "SimOperator")) return "mccmnc";
     if (!strcmp(name, "mccmnc")) return "SimOperator";
+    if (!strcmp(name, "gaid")) return "google_aid";
+    if (!strcmp(name, "google_aid")) return "gaid";
+    if (!strcmp(name, "advertising_id")) return "gaid";
+    if (!strcmp(name, "adid")) return "gaid";
+    if (!strcmp(name, "android_id")) return "androidid";
+    if (!strcmp(name, "androidid")) return "android_id";
+    if (!strcmp(name, "openudid")) return "android_id";
     return nullptr;
 }
 
