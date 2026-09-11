@@ -7484,31 +7484,42 @@ public final class Settings {
             }
 
             if (ANDROID_ID.equals(name)) {
-                String spoofId = android.os.SystemProperties.get("ro.android_id", "");
-                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("ro.boot.android_id", "");
-                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.android_id", "");
-                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id", "");
-                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.androidid", "");
-                if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.androidid", "");
-                if (spoofId != null && !spoofId.isEmpty()) {
-                    return spoofId;
-                }
-                try {
-                    java.io.File[] files = new java.io.File[] {
-                        new java.io.File("/data/vendor/hwcfg/android_id"),
-                        new java.io.File("/data/vendor/hwcfg/Utils/android_id")
-                    };
-                    for (java.io.File f : files) {
-                        if (f.exists() && f.canRead()) {
-                            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f));
-                            String val = br.readLine();
-                            br.close();
-                            if (val != null && !val.trim().isEmpty()) {
-                                return val.trim();
+                String curPkg = android.app.ActivityThread.currentPackageName();
+                if (curPkg != null && (curPkg.startsWith("com.google.android.gms")
+                        || curPkg.equals("com.google.android.gsf")
+                        || curPkg.equals("com.android.vending")
+                        || curPkg.startsWith("com.google.android.syncadapters")
+                        || curPkg.startsWith("com.google.android.feedback")
+                        || curPkg.startsWith("com.google.android.apps.")
+                        || curPkg.startsWith("com.google.android.googlequicksearchbox"))) {
+                    // Keep real Android ID for Google services so Google accounts remain permanently logged in
+                } else {
+                    String spoofId = android.os.SystemProperties.get("ro.android_id", "");
+                    if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("ro.boot.android_id", "");
+                    if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.android_id", "");
+                    if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id", "");
+                    if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("sys.hwcfg.androidid", "");
+                    if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.androidid", "");
+                    if (spoofId != null && !spoofId.isEmpty()) {
+                        return spoofId;
+                    }
+                    try {
+                        java.io.File[] files = new java.io.File[] {
+                            new java.io.File("/data/vendor/hwcfg/android_id"),
+                            new java.io.File("/data/vendor/hwcfg/Utils/android_id")
+                        };
+                        for (java.io.File f : files) {
+                            if (f.exists() && f.canRead()) {
+                                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f));
+                                String val = br.readLine();
+                                br.close();
+                                if (val != null && !val.trim().isEmpty()) {
+                                    return val.trim();
+                                }
                             }
                         }
-                    }
-                } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {}
+                }
             }
 
             if ("bluetooth_name".equals(name)) {

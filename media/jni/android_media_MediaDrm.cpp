@@ -40,11 +40,34 @@
 #include <mediadrm/IDrm.h>
 #include <utils/Vector.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 using ::android::os::PersistableBundle;
 namespace drm = ::android::hardware::drm;
 
 namespace android {
+
+static bool readHwcfgFileTrim(const char* filename, char* buf, size_t maxLen) {
+    if (!filename || !buf || maxLen == 0) return false;
+    const char* dirs[] = { "/data/vendor/hwcfg/", "/data/vendor/hwcfg/Utils/" };
+    for (const char* dir : dirs) {
+        char fullPath[256];
+        snprintf(fullPath, sizeof(fullPath), "%s%s", dir, filename);
+        int fd = open(fullPath, O_RDONLY | O_CLOEXEC);
+        if (fd >= 0) {
+            ssize_t n = read(fd, buf, maxLen - 1);
+            close(fd);
+            if (n > 0) {
+                buf[n] = '\0';
+                while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r' || buf[n - 1] == ' ' || buf[n - 1] == '\t')) {
+                    buf[--n] = '\0';
+                }
+                if (buf[0] != '\0') return true;
+            }
+        }
+    }
+    return false;
+}
 
 static bool getSpoofDrmUnique(Vector<uint8_t>* value) {
     if (getuid() < AID_APP_START || value == nullptr) return false;
@@ -52,6 +75,9 @@ static bool getSpoofDrmUnique(Vector<uint8_t>* value) {
     property_get("sys.hwcfg.drm.unique", prop, "");
     if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.unique", prop, "");
     if (prop[0] == 0) property_get("gsm.hwcfg.drm.unique", prop, "");
+    if (prop[0] == 0) readHwcfgFileTrim("drm_unique_id", prop, sizeof(prop));
+    if (prop[0] == 0) readHwcfgFileTrim("drm.unique", prop, sizeof(prop));
+    if (prop[0] == 0) readHwcfgFileTrim("drm_unique", prop, sizeof(prop));
     if (prop[0] == 0) return false;
     value->clear();
     for (size_t i = 0; prop[i] != 0 && prop[i + 1] != 0; i += 2) {
@@ -74,6 +100,8 @@ static bool getSpoofDrmPropertyString(const String8& name, String8& value) {
         char prop[PROPERTY_VALUE_MAX] = {0};
         property_get("sys.hwcfg.drm.security_level", prop, "");
         if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.security_level", prop, "");
+        if (prop[0] == 0) readHwcfgFileTrim("drm_security_level", prop, sizeof(prop));
+        if (prop[0] == 0) readHwcfgFileTrim("drm.security_level", prop, sizeof(prop));
         if (prop[0] != 0) {
             value = String8(prop);
         } else {
@@ -85,6 +113,8 @@ static bool getSpoofDrmPropertyString(const String8& name, String8& value) {
         char prop[PROPERTY_VALUE_MAX] = {0};
         property_get("sys.hwcfg.drm.system_id", prop, "");
         if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.system_id", prop, "");
+        if (prop[0] == 0) readHwcfgFileTrim("drm_system_id", prop, sizeof(prop));
+        if (prop[0] == 0) readHwcfgFileTrim("drm.system_id", prop, sizeof(prop));
         if (prop[0] != 0) {
             value = String8(prop);
             return true;
