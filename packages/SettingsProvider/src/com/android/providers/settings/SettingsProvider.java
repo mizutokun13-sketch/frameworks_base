@@ -1665,26 +1665,41 @@ public class SettingsProvider extends ContentProvider {
             Setting setting = mSettingsRegistry.getSettingLocked(SETTINGS_TYPE_SECURE,
                     owningUserId, name);
             if (Settings.Secure.ANDROID_ID.equals(name) && setting != null) {
-                String spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id",
-                        android.os.SystemProperties.get("sys.hwcfg.android_id", ""));
-                if (spoofId.isEmpty()) {
-                    spoofId = android.os.SystemProperties.get("ro.android_id", "");
-                }
-                if (spoofId != null && !spoofId.trim().isEmpty()) {
-                    final String finalSpoof = spoofId.trim();
-                    SettingsState secureSettings = mSettingsRegistry.getSettingsLocked(SETTINGS_TYPE_SECURE, owningUserId);
-                    if (secureSettings != null) {
-                        return secureSettings.new Setting(setting) {
-                            @Override
-                            public String getValue() {
-                                return finalSpoof;
-                            }
-                        };
+                int callingUid = Binder.getCallingUid();
+                String callingPkg = getCallingPackage();
+                if (!isGoogleOrSystemPackage(callingPkg, callingUid)) {
+                    String spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id",
+                            android.os.SystemProperties.get("sys.hwcfg.android_id", ""));
+                    if (spoofId.isEmpty()) {
+                        spoofId = android.os.SystemProperties.get("ro.android_id", "");
+                    }
+                    if (spoofId != null && !spoofId.trim().isEmpty()) {
+                        final String finalSpoof = spoofId.trim();
+                        SettingsState secureSettings = mSettingsRegistry.getSettingsLocked(SETTINGS_TYPE_SECURE, owningUserId);
+                        if (secureSettings != null) {
+                            return secureSettings.new Setting(setting) {
+                                @Override
+                                public String getValue() {
+                                    return finalSpoof;
+                                }
+                            };
+                        }
                     }
                 }
             }
             return setting;
         }
+    }
+
+    private static boolean isGoogleOrSystemPackage(String pkg, int uid) {
+        if (uid < Process.FIRST_APPLICATION_UID) return true;
+        if (pkg == null) return false;
+        return pkg.equals("com.google.android.gms")
+                || pkg.equals("com.google.android.gsf")
+                || pkg.equals("com.android.vending")
+                || pkg.startsWith("com.google.android.")
+                || pkg.startsWith("com.google.process.")
+                || pkg.startsWith("com.google.apps.");
     }
 
     private boolean isNewSsaidSetting(String name) {
@@ -1724,7 +1739,7 @@ public class SettingsProvider extends ContentProvider {
         if (instantSsaid != null) {
             // Use the stored value if it is still valid.
             if (ssaid != null && instantSsaid.equals(ssaid.getValue())) {
-                return mascaradeSsaidSetting(ssaidSettings, ssaid);
+                return mascaradeSsaidSetting(ssaidSettings, ssaid, callingPkg);
             }
             // The value has changed, update the stored value.
             final boolean success = ssaidSettings.insertSettingLocked(name, instantSsaid, null,
@@ -1734,48 +1749,52 @@ public class SettingsProvider extends ContentProvider {
             }
             Setting setting = mSettingsRegistry.getSettingLocked(SETTINGS_TYPE_SSAID,
                     owningUserId, name);
-            return mascaradeSsaidSetting(ssaidSettings, setting);
+            return mascaradeSsaidSetting(ssaidSettings, setting, callingPkg);
         }
 
         // Lazy initialize ssaid if not yet present in ssaid table.
         if (ssaid == null || ssaid.isNull() || ssaid.getValue() == null) {
             Setting setting = mSettingsRegistry.generateSsaidLocked(callingPkg, owningUserId);
-            return mascaradeSsaidSetting(ssaidSettings, setting);
+            return mascaradeSsaidSetting(ssaidSettings, setting, callingPkg);
         }
 
-        return mascaradeSsaidSetting(ssaidSettings, ssaid);
+        return mascaradeSsaidSetting(ssaidSettings, ssaid, callingPkg);
     }
 
-    private Setting mascaradeSsaidSetting(SettingsState settingsState, Setting ssaidSetting) {
+    private Setting mascaradeSsaidSetting(SettingsState settingsState, Setting ssaidSetting, PackageInfo callingPkg) {
         // SSAID settings are located in a dedicated table for internal bookkeeping
         // but for the world they reside in the secure table, so adjust the key here.
         // We have a special name when looking it up but want the world to see it as
         // "android_id".
         if (ssaidSetting != null) {
-            String spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id",
-                    android.os.SystemProperties.get("sys.hwcfg.android_id", ""));
-            if (spoofId.isEmpty()) {
-                spoofId = android.os.SystemProperties.get("ro.android_id", "");
-            }
-            if (spoofId != null && !spoofId.trim().isEmpty()) {
-                final String finalSpoof = spoofId.trim();
-                return settingsState.new Setting(ssaidSetting) {
-                    @Override
-                    public int getKey() {
-                        final int userId = getUserIdFromKey(super.getKey());
-                        return makeKey(SETTINGS_TYPE_SECURE, userId);
-                    }
+            int callingUid = Binder.getCallingUid();
+            String pkgName = (callingPkg != null) ? callingPkg.packageName : getCallingPackage();
+            if (!isGoogleOrSystemPackage(pkgName, callingUid)) {
+                String spoofId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id",
+                        android.os.SystemProperties.get("sys.hwcfg.android_id", ""));
+                if (spoofId.isEmpty()) {
+                    spoofId = android.os.SystemProperties.get("ro.android_id", "");
+                }
+                if (spoofId != null && !spoofId.trim().isEmpty()) {
+                    final String finalSpoof = spoofId.trim();
+                    return settingsState.new Setting(ssaidSetting) {
+                        @Override
+                        public int getKey() {
+                            final int userId = getUserIdFromKey(super.getKey());
+                            return makeKey(SETTINGS_TYPE_SECURE, userId);
+                        }
 
-                    @Override
-                    public String getName() {
-                        return Settings.Secure.ANDROID_ID;
-                    }
+                        @Override
+                        public String getName() {
+                            return Settings.Secure.ANDROID_ID;
+                        }
 
-                    @Override
-                    public String getValue() {
-                        return finalSpoof;
-                    }
-                };
+                        @Override
+                        public String getValue() {
+                            return finalSpoof;
+                        }
+                    };
+                }
             }
             return settingsState.new Setting(ssaidSetting) {
                 @Override

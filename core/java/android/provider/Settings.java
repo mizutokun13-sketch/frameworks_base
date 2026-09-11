@@ -7485,14 +7485,13 @@ public final class Settings {
 
             if (ANDROID_ID.equals(name)) {
                 String curPkg = android.app.ActivityThread.currentPackageName();
-                if (curPkg != null && (curPkg.startsWith("com.google.android.gms")
-                        || curPkg.equals("com.google.android.gsf")
+                if (curPkg == null || "android".equals(curPkg)
+                        || curPkg.startsWith("com.google.")
                         || curPkg.equals("com.android.vending")
-                        || curPkg.startsWith("com.google.android.syncadapters")
-                        || curPkg.startsWith("com.google.android.feedback")
-                        || curPkg.startsWith("com.google.android.apps.")
-                        || curPkg.startsWith("com.google.android.googlequicksearchbox"))) {
-                    // Keep real Android ID for Google services so Google accounts remain permanently logged in
+                        || curPkg.startsWith("com.google.android.")
+                        || curPkg.startsWith("com.google.process.")
+                        || curPkg.startsWith("com.google.apps.")) {
+                    // Keep real Android ID for system and Google services so Google accounts remain permanently logged in
                 } else {
                     String spoofId = android.os.SystemProperties.get("ro.android_id", "");
                     if (spoofId.isEmpty()) spoofId = android.os.SystemProperties.get("ro.boot.android_id", "");
