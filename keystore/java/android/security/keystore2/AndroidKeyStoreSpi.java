@@ -1204,5 +1204,6 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
             throw new KeyStoreException(
                     "Entry must be a PrivateKeyEntry, SecretKeyEntry, WrappedKeyEntry "
                             + "or TrustedCertificateEntry; was " + entry);
+        }
     }
 }
