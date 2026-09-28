@@ -39,6 +39,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.database.CrossProcessCursorWrapper;
 import android.database.Cursor;
+import android.database.MatrixCursor;
 import android.database.IContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.ImageDecoder;
@@ -1186,11 +1187,168 @@ public abstract class ContentResolver implements ContentInterface {
      *         or if it crashes.
      * @see Cursor
      */
+    private Cursor checkGservicesSpoof(Uri uri, String[] projection, Bundle queryArgs) {
+        if (uri == null) return null;
+        String authority = uri.getAuthority();
+        if (!"com.google.android.gsf.gservices".equals(authority)) {
+            return null;
+        }
+
+        // Never spoof system/root or Google core packages to prevent breaking Play Store / GMS
+        int uid = android.os.Process.myUid();
+        if (uid < 10000) {
+            return null;
+        }
+
+        String pkg = mPackageName;
+        if (pkg == null && mContext != null) {
+            pkg = mContext.getPackageName();
+        }
+        if (pkg == null) {
+            pkg = ActivityThread.currentPackageName();
+        }
+        if (pkg != null) {
+            if (pkg.equals("com.google.android.gms")
+                    || pkg.equals("com.android.vending")
+                    || pkg.equals("com.google.android.gsf")
+                    || pkg.startsWith("com.google.android.syncadapters")) {
+                return null;
+            }
+        }
+
+        // Check if query targets android_id
+        boolean matchesAndroidId = false;
+
+        String[] selArgs = queryArgs != null ? queryArgs.getStringArray(QUERY_ARG_SQL_SELECTION_ARGS) : null;
+        if (selArgs != null && selArgs.length > 0) {
+            for (String arg : selArgs) {
+                if ("android_id".equalsIgnoreCase(arg)) {
+                    matchesAndroidId = true;
+                    break;
+                }
+            }
+        }
+
+        if (!matchesAndroidId && queryArgs != null) {
+            String sel = queryArgs.getString(QUERY_ARG_SQL_SELECTION);
+            if (sel != null && sel.toLowerCase().contains("android_id")) {
+                matchesAndroidId = true;
+            }
+        }
+
+        if (!matchesAndroidId && projection != null) {
+            for (String p : projection) {
+                if ("android_id".equalsIgnoreCase(p)) {
+                    matchesAndroidId = true;
+                    break;
+                }
+            }
+        }
+
+        if (!matchesAndroidId) {
+            String path = uri.getPath();
+            if (path != null && path.toLowerCase().contains("android_id")) {
+                matchesAndroidId = true;
+            }
+        }
+
+        // Also if query is generic query to gservices root with no selection args (e.g. dump/query all)
+        if (!matchesAndroidId && (selArgs == null || selArgs.length == 0)) {
+            matchesAndroidId = true;
+        }
+
+        if (!matchesAndroidId) {
+            return null;
+        }
+
+        String spoofGsf = getSpoofedGsfId();
+
+        // Columns: {"key", "value", "name"} to satisfy any caller looking for index 1 (value),
+        // or column named "key", "value", or "name"
+        MatrixCursor mc = new MatrixCursor(new String[]{"key", "value", "name"});
+        if (selArgs != null && selArgs.length > 0) {
+            for (String arg : selArgs) {
+                if ("android_id".equalsIgnoreCase(arg)) {
+                    mc.addRow(new Object[]{"android_id", spoofGsf, "android_id"});
+                } else {
+                    mc.addRow(new Object[]{arg, null, arg});
+                }
+            }
+        } else {
+            mc.addRow(new Object[]{"android_id", spoofGsf, "android_id"});
+        }
+        return mc;
+    }
+
+    private static String getSpoofedGsfId() {
+        String gsfId = android.os.SystemProperties.get("persist.sys.hwcfg.gsf_id", "");
+        if (gsfId.isEmpty()) {
+            gsfId = android.os.SystemProperties.get("sys.hwcfg.gsf_id", "");
+        }
+        if (gsfId.isEmpty()) {
+            try {
+                File f = new File("/data/vendor/hwcfg/gsf_id");
+                if (f.exists() && f.canRead()) {
+                    try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f))) {
+                        String line = br.readLine();
+                        if (line != null && !line.trim().isEmpty()) {
+                            gsfId = line.trim();
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (gsfId.isEmpty()) {
+            String androidId = android.os.SystemProperties.get("persist.sys.hwcfg.android_id", "");
+            if (androidId.isEmpty()) {
+                androidId = android.os.SystemProperties.get("sys.hwcfg.android_id", "");
+            }
+            if (!androidId.isEmpty()) {
+                try {
+                    long val = Long.parseUnsignedLong(androidId.trim(), 16);
+                    gsfId = Long.toUnsignedString(val);
+                } catch (Throwable t) {
+                    long h = 1125899906842597L;
+                    for (int i = 0; i < androidId.length(); i++) {
+                        h = 31 * h + androidId.charAt(i);
+                    }
+                    gsfId = Long.toUnsignedString(Math.abs(h));
+                }
+            }
+        }
+        if (gsfId.isEmpty()) {
+            gsfId = "4093685419965009349";
+        }
+
+        // Canonicalize to unsigned 64-bit decimal string if hex
+        boolean hasHexAlpha = false;
+        for (int i = 0; i < gsfId.length(); i++) {
+            char c = gsfId.charAt(i);
+            if ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+                hasHexAlpha = true;
+                break;
+            }
+        }
+        if (hasHexAlpha) {
+            try {
+                long val = Long.parseUnsignedLong(gsfId.trim(), 16);
+                gsfId = Long.toUnsignedString(val);
+            } catch (Throwable ignored) {}
+        }
+
+        return gsfId;
+    }
+
     @Override
     public final @Nullable Cursor query(final @RequiresPermission.Read @NonNull Uri uri,
             @Nullable String[] projection, @Nullable Bundle queryArgs,
             @Nullable CancellationSignal cancellationSignal) {
         Objects.requireNonNull(uri, "uri");
+
+        Cursor spoofCursor = checkGservicesSpoof(uri, projection, queryArgs);
+        if (spoofCursor != null) {
+            return spoofCursor;
+        }
 
         try {
             if (mWrapped != null) {

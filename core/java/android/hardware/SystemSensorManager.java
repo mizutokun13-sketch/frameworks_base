@@ -191,22 +191,74 @@ public class SystemSensorManager extends SensorManager {
                     continue;
                 }
 
-                // 4. Sanitize Samsung vendor names for general sensors (Accelerometer, Gyro, Compass, Light, Prox)
-                if (vendor != null && vendor.toLowerCase().contains("samsung")) {
-                    if (name != null && (name.contains("LSM6") || name.contains("STM") || name.contains("LPS"))) {
-                        sensor.setVendor("STMicroelectronics");
-                    } else if (name != null && name.contains("AK")) {
+                // 4. Spoof sensor IC names and vendors matching active device profile
+                String targetBrand = android.os.SystemProperties.get("sys.hwcfg.brand",
+                        android.os.SystemProperties.get("persist.sys.hwcfg.brand", android.os.Build.BRAND));
+                boolean isXiaomi = targetBrand != null && (targetBrand.equalsIgnoreCase("Xiaomi")
+                        || targetBrand.equalsIgnoreCase("Redmi") || targetBrand.equalsIgnoreCase("POCO"));
+                boolean isOppoOrRealme = targetBrand != null && (targetBrand.equalsIgnoreCase("OPPO")
+                        || targetBrand.equalsIgnoreCase("Realme") || targetBrand.equalsIgnoreCase("OnePlus")
+                        || targetBrand.equalsIgnoreCase("vivo") || targetBrand.equalsIgnoreCase("iQOO"));
+
+                if (isXiaomi) {
+                    if (type == Sensor.TYPE_ACCELEROMETER) {
+                        sensor.setName("BMI260 Accelerometer");
+                        sensor.setVendor("Bosch Sensortec");
+                    } else if (type == Sensor.TYPE_GYROSCOPE || type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
+                        sensor.setName("BMI260 Gyroscope");
+                        sensor.setVendor("Bosch Sensortec");
+                    } else if (type == Sensor.TYPE_MAGNETIC_FIELD || type == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
+                        sensor.setName("AK09918 Magnetic Sensor");
                         sensor.setVendor("Asahi Kasei Microdevices");
-                    } else if (name != null && name.contains("TMD")) {
+                    } else if (type == Sensor.TYPE_LIGHT) {
+                        sensor.setName("TCS3701 Light Sensor");
                         sensor.setVendor("AMS, Inc.");
-                    } else {
-                        sensor.setVendor("AOSP");
+                    } else if (type == Sensor.TYPE_PROXIMITY) {
+                        sensor.setName("Ultrasonic Proximity Sensor");
+                        sensor.setVendor("Elliptic Labs");
+                    } else if (type == Sensor.TYPE_STEP_COUNTER) {
+                        sensor.setName("BMI260 Step Counter");
+                        sensor.setVendor("Bosch Sensortec");
+                    } else if (type == Sensor.TYPE_STEP_DETECTOR) {
+                        sensor.setName("BMI260 Step Detector");
+                        sensor.setVendor("Bosch Sensortec");
                     }
-                }
-                if (name != null && name.startsWith("SAMSUNG ")) {
-                    sensor.setName(name.substring(8));
-                } else if (name != null && name.startsWith("Samsung ")) {
-                    sensor.setName(name.substring(8));
+                } else if (isOppoOrRealme) {
+                    if (type == Sensor.TYPE_ACCELEROMETER) {
+                        sensor.setName("ICM42607 Accelerometer");
+                        sensor.setVendor("InvenSense");
+                    } else if (type == Sensor.TYPE_GYROSCOPE || type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
+                        sensor.setName("ICM42607 Gyroscope");
+                        sensor.setVendor("InvenSense");
+                    } else if (type == Sensor.TYPE_MAGNETIC_FIELD || type == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
+                        sensor.setName("AK09918 Magnetic Sensor");
+                        sensor.setVendor("Asahi Kasei Microdevices");
+                    } else if (type == Sensor.TYPE_LIGHT) {
+                        sensor.setName("TCS3701 Light Sensor");
+                        sensor.setVendor("AMS, Inc.");
+                    } else if (type == Sensor.TYPE_PROXIMITY) {
+                        sensor.setName("TCS3701 Proximity Sensor");
+                        sensor.setVendor("AMS, Inc.");
+                    }
+                } else {
+                    // Modern Samsung (e.g. S21, S22, A53)
+                    if (type == Sensor.TYPE_ACCELEROMETER) {
+                        sensor.setName("LSM6DSO Acceleration Sensor");
+                        sensor.setVendor("STMicroelectronics");
+                    } else if (type == Sensor.TYPE_GYROSCOPE || type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
+                        sensor.setName("LSM6DSO Gyroscope Sensor");
+                        sensor.setVendor("STMicroelectronics");
+                    } else if (type == Sensor.TYPE_MAGNETIC_FIELD || type == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
+                        sensor.setName("AK09918C Magnetic field Sensor");
+                        sensor.setVendor("Asahi Kasei Microdevices");
+                    } else {
+                        if (vendor != null && vendor.toLowerCase().contains("samsung")) {
+                            sensor.setVendor("STMicroelectronics");
+                        }
+                        if (name != null && (name.startsWith("SAMSUNG ") || name.startsWith("Samsung "))) {
+                            sensor.setName(name.substring(8));
+                        }
+                    }
                 }
             }
 

@@ -71,6 +71,12 @@ static bool readHwcfgFileTrim(const char* filename, char* buf, size_t maxLen) {
 
 static bool getSpoofDrmUnique(Vector<uint8_t>* value) {
     if (getuid() < AID_APP_START || value == nullptr) return false;
+    char enableProp[PROPERTY_VALUE_MAX] = {0};
+    property_get("persist.sys.hwcfg.spoof_drm_id", enableProp, "");
+    if (enableProp[0] == 0) property_get("sys.hwcfg.spoof_drm_id", enableProp, "");
+    if (strcmp(enableProp, "1") != 0 && strcmp(enableProp, "true") != 0) {
+        return false;
+    }
     char prop[PROPERTY_VALUE_MAX] = {0};
     property_get("sys.hwcfg.drm.unique", prop, "");
     if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.unique", prop, "");
@@ -97,6 +103,12 @@ static bool getSpoofDrmUnique(Vector<uint8_t>* value) {
 static bool getSpoofDrmPropertyString(const String8& name, String8& value) {
     if (getuid() < AID_APP_START) return false;
     if (name == String8("securityLevel") || name == String8("maxSecurityLevel")) {
+        char enableProp[PROPERTY_VALUE_MAX] = {0};
+        property_get("persist.sys.hwcfg.spoof_drm_l1", enableProp, "");
+        if (enableProp[0] == 0) property_get("sys.hwcfg.spoof_drm_l1", enableProp, "");
+        if (strcmp(enableProp, "1") != 0 && strcmp(enableProp, "true") != 0) {
+            return false;
+        }
         char prop[PROPERTY_VALUE_MAX] = {0};
         property_get("sys.hwcfg.drm.security_level", prop, "");
         if (prop[0] == 0) property_get("persist.sys.hwcfg.drm.security_level", prop, "");

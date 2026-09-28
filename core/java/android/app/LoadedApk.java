@@ -1726,6 +1726,10 @@ public final class LoadedApk {
                     if (!sVolt.isEmpty()) {
                         try { intent.putExtra(android.os.BatteryManager.EXTRA_VOLTAGE, Integer.parseInt(sVolt)); } catch (Exception ignored) {}
                     }
+                    int plug = intent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0);
+                    if (plug == android.os.BatteryManager.BATTERY_PLUGGED_USB) {
+                        intent.putExtra(android.os.BatteryManager.EXTRA_PLUGGED, android.os.BatteryManager.BATTERY_PLUGGED_AC);
+                    }
                 }
                 if (rd != null) {
                     rd.performReceive(intent, resultCode, data, extras,
@@ -2181,66 +2185,95 @@ public final class LoadedApk {
                 } catch (Throwable ignored) {}
             }
             if (name != null) {
-                String pkg = name.getPackageName();
                 String cls = name.getClassName();
-                if ("com.google.android.gms".equals(pkg)) {
-                    if (cls != null) {
-                        String lower = cls.toLowerCase();
-                        if (lower.contains("advertisingid") || lower.contains("ads.identifier") || lower.contains("adid") || lower.contains("ads")) {
-                            return true;
-                        }
-                    }
+                if ("com.google.android.gms.ads.identifier.service.AdvertisingIdService".equals(cls)) {
+                    return true;
                 }
             }
             return false;
         }
 
+        private static String sCachedGaid = null;
+
         private static String getSpoofedGaid() {
-            // 1. Try Settings.Global (advertising_id / gaid)
+            if (sCachedGaid != null && !sCachedGaid.isEmpty()) {
+                return sCachedGaid;
+            }
+
+            // 1. Try Settings.Global / Secure (advertising_id / gaid)
             try {
                 ActivityThread at = ActivityThread.currentActivityThread();
                 Context ctx = (at != null) ? at.getApplication() : null;
                 if (ctx != null) {
                     android.content.ContentResolver cr = ctx.getContentResolver();
                     String g = Settings.Global.getString(cr, "advertising_id");
-                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    if (g != null && !g.trim().isEmpty()) {
+                        sCachedGaid = g.trim();
+                        return sCachedGaid;
+                    }
                     g = Settings.Global.getString(cr, "gaid");
-                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    if (g != null && !g.trim().isEmpty()) {
+                        sCachedGaid = g.trim();
+                        return sCachedGaid;
+                    }
                     g = Settings.Secure.getString(cr, "advertising_id");
-                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    if (g != null && !g.trim().isEmpty()) {
+                        sCachedGaid = g.trim();
+                        return sCachedGaid;
+                    }
                     g = Settings.Secure.getString(cr, "gaid");
-                    if (g != null && !g.trim().isEmpty()) return g.trim();
+                    if (g != null && !g.trim().isEmpty()) {
+                        sCachedGaid = g.trim();
+                        return sCachedGaid;
+                    }
                 }
             } catch (Throwable ignored) {}
 
             // 2. Try SystemProperties
             try {
-                String spoofGaid = SystemProperties.get("ro.advertising.id", "");
+                String spoofGaid = SystemProperties.get("persist.sys.hwcfg.gaid",
+                        SystemProperties.get("sys.hwcfg.gaid", ""));
                 if (spoofGaid.isEmpty()) {
-                    spoofGaid = SystemProperties.get("ro.google.aid", "");
-                }
-                if (spoofGaid.isEmpty()) {
-                    spoofGaid = SystemProperties.get("sys.hwcfg.gaid",
-                            SystemProperties.get("persist.sys.hwcfg.gaid", ""));
+                    spoofGaid = SystemProperties.get("ro.advertising.id",
+                            SystemProperties.get("ro.google.aid", ""));
                 }
                 if (spoofGaid != null && !spoofGaid.trim().isEmpty()) {
-                    return spoofGaid.trim();
+                    sCachedGaid = spoofGaid.trim();
+                    return sCachedGaid;
                 }
             } catch (Throwable ignored) {}
 
-            // 3. Fallback to deterministic UUID seeded by android_id so every profile change automatically changes GAID
+            // 3. Try /data/vendor/hwcfg/gaid
             try {
-                ActivityThread at = ActivityThread.currentActivityThread();
-                Context ctx = (at != null) ? at.getApplication() : null;
-                if (ctx != null) {
-                    String aid = Settings.Secure.getString(ctx.getContentResolver(), Settings.Secure.ANDROID_ID);
-                    if (aid != null && !aid.trim().isEmpty()) {
-                        return java.util.UUID.nameUUIDFromBytes(("gaid_seed:" + aid.trim()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+                java.io.File f = new java.io.File("/data/vendor/hwcfg/gaid");
+                if (f.exists() && f.canRead()) {
+                    try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f))) {
+                        String line = br.readLine();
+                        if (line != null && !line.trim().isEmpty()) {
+                            sCachedGaid = line.trim();
+                            return sCachedGaid;
+                        }
                     }
                 }
             } catch (Throwable ignored) {}
 
-            return java.util.UUID.randomUUID().toString();
+            // 4. Fallback to deterministic UUID seeded by android_id so every profile change automatically changes GAID
+            try {
+                ActivityThread at = ActivityThread.currentActivityThread();
+                Context ctx = (at != null) ? at.getApplication() : null;
+                String aid = (ctx != null) ? Settings.Secure.getString(ctx.getContentResolver(), Settings.Secure.ANDROID_ID) : null;
+                if (aid == null || aid.trim().isEmpty()) {
+                    aid = SystemProperties.get("persist.sys.hwcfg.android_id",
+                            SystemProperties.get("sys.hwcfg.android_id", android.os.Build.SERIAL));
+                }
+                if (aid != null && !aid.trim().isEmpty()) {
+                    sCachedGaid = java.util.UUID.nameUUIDFromBytes(("gaid_fixed:" + aid.trim()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+                    return sCachedGaid;
+                }
+            } catch (Throwable ignored) {}
+
+            sCachedGaid = java.util.UUID.nameUUIDFromBytes(("gaid_fixed:" + android.os.Build.FINGERPRINT).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            return sCachedGaid;
         }
 
         private static IBinder wrapAdvertisingIdService(final IBinder origService) {

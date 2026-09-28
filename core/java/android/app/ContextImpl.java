@@ -1860,6 +1860,10 @@ class ContextImpl extends Context {
                     if (!sVolt.isEmpty()) {
                         try { intent.putExtra(android.os.BatteryManager.EXTRA_VOLTAGE, Integer.parseInt(sVolt)); } catch (Exception ignored) {}
                     }
+                    int plug = intent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0);
+                    if (plug == android.os.BatteryManager.BATTERY_PLUGGED_USB) {
+                        intent.putExtra(android.os.BatteryManager.EXTRA_PLUGGED, android.os.BatteryManager.BATTERY_PLUGGED_AC);
+                    }
                 }
             }
             return intent;

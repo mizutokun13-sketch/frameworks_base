@@ -11,6 +11,7 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <sstream>
 #include <string>
 
 #define AID_APP_START 10000
@@ -266,12 +267,22 @@ std::string get(const char* name) {
         property_get(prop_key.c_str(), prop_val, "");
     }
     if (prop_val[0] == 0) {
+        prop_key = "gsm.hwcfg.";
+        prop_key += name;
+        property_get(prop_key.c_str(), prop_val, "");
+    }
+    if (prop_val[0] == 0) {
         if (const char* alias = aliasField(name)) {
             prop_key = "sys.hwcfg.";
             prop_key += alias;
             property_get(prop_key.c_str(), prop_val, "");
             if (prop_val[0] == 0) {
                 prop_key = "persist.sys.hwcfg.";
+                prop_key += alias;
+                property_get(prop_key.c_str(), prop_val, "");
+            }
+            if (prop_val[0] == 0) {
+                prop_key = "gsm.hwcfg.";
                 prop_key += alias;
                 property_get(prop_key.c_str(), prop_val, "");
             }
@@ -468,140 +479,64 @@ std::string lookupProp(const char* key) {
     return {};
 }
 
-// Authentic OpenGL ES 3.2 extension strings captured from genuine Android devices
-static const char kGlExtensionsAdreno740[] =
-    "GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_sync GL_OES_vertex_half_float "
-    "GL_OES_framebuffer_object GL_OES_rgb8_rgba8 GL_OES_compressed_ETC1_RGB8_texture "
-    "GL_AMD_compressed_ATC_texture GL_KHR_texture_compression_astc_ldr "
-    "GL_KHR_texture_compression_astc_hdr GL_OES_texture_compression_astc GL_OES_texture_npot "
-    "GL_OES_texture_float GL_OES_texture_half_float GL_OES_texture_half_float_linear "
-    "GL_OES_texture_float_linear GL_OES_element_index_uint GL_OES_standard_derivatives "
-    "GL_OES_packed_depth_stencil GL_OES_depth24 GL_OES_depth32 GL_OES_depth_texture "
-    "GL_OES_depth_texture_cube_map GL_OES_texture_stencil8 GL_OES_texture_3D "
-    "GL_OES_compressed_paletted_texture GL_OES_get_program_binary GL_OES_mapbuffer "
-    "GL_OES_texture_storage GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 "
-    "GL_OES_texture_format_BGRA8888 GL_OES_draw_texture GL_OES_copy_image GL_EXT_sRGB "
-    "GL_EXT_sRGB_write_control GL_EXT_multisampled_render_to_texture "
-    "GL_EXT_multisampled_render_to_texture2 GL_EXT_color_buffer_float "
-    "GL_EXT_color_buffer_half_float GL_EXT_disjoint_timer_query GL_EXT_texture_sRGB_decode "
-    "GL_EXT_texture_sRGB_R8 GL_EXT_texture_sRGB_RG8 GL_EXT_robustness "
-    "GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_s3tc GL_EXT_texture_buffer "
-    "GL_EXT_texture_border_clamp GL_EXT_texture_cube_map_array GL_EXT_draw_buffers_indexed "
-    "GL_EXT_geometry_shader GL_EXT_gpu_shader5 GL_EXT_shader_io_blocks "
-    "GL_EXT_tessellation_shader GL_EXT_primitive_bounding_box GL_EXT_clip_cull_distance "
-    "GL_EXT_protected_textures GL_EXT_memory_object GL_EXT_memory_object_fd "
-    "GL_KHR_blend_equation_advanced GL_KHR_blend_equation_advanced_coherent "
-    "GL_KHR_sample_shading GL_KHR_robustness GL_KHR_robust_buffer_access_behavior "
-    "GL_EXT_buffer_storage GL_EXT_polygon_offset_clamp GL_EXT_YUV_target "
-    "GL_QCOM_alpha_test GL_QCOM_tiled_rendering GL_QCOM_extended_get GL_QCOM_extended_get2 "
-    "GL_QCOM_binning_control GL_QCOM_driver_control "
-    "GL_QCOM_framebuffer_fbo_completeness_query GL_QCOM_motion_estimation "
-    "GL_QCOM_shading_rate GL_QCOM_texture_foveated GL_QCOM_texture_foveated2 "
-    "GL_QCOM_texture_foveated_subsampled_layout "
-    "GL_QCOM_shader_framebuffer_fetch_non_coherent GL_QCOM_YUV_texture_gather "
-    "GL_OVR_multiview GL_OVR_multiview2 GL_OVR_multiview_multisampled_render_to_texture "
-    "GL_ANDROID_extension_pack_es31a";
+std::string filterGlExtensions(const char* rawExtensions) {
+    if (!rawExtensions) return "";
 
-static const char kGlExtensionsAdreno6xx[] =
-    "GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_sync GL_OES_vertex_half_float "
-    "GL_OES_framebuffer_object GL_OES_rgb8_rgba8 GL_OES_compressed_ETC1_RGB8_texture "
-    "GL_AMD_compressed_ATC_texture GL_KHR_texture_compression_astc_ldr "
-    "GL_KHR_texture_compression_astc_hdr GL_OES_texture_compression_astc GL_OES_texture_npot "
-    "GL_OES_texture_float GL_OES_texture_half_float GL_OES_texture_half_float_linear "
-    "GL_OES_texture_float_linear GL_OES_element_index_uint GL_OES_standard_derivatives "
-    "GL_OES_packed_depth_stencil GL_OES_depth24 GL_OES_depth32 GL_OES_depth_texture "
-    "GL_OES_depth_texture_cube_map GL_OES_texture_stencil8 GL_OES_texture_3D "
-    "GL_OES_get_program_binary GL_OES_mapbuffer GL_OES_texture_storage "
-    "GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 "
-    "GL_OES_texture_format_BGRA8888 GL_OES_draw_texture GL_OES_copy_image GL_EXT_sRGB "
-    "GL_EXT_sRGB_write_control GL_EXT_multisampled_render_to_texture "
-    "GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_disjoint_timer_query "
-    "GL_EXT_texture_sRGB_decode GL_EXT_robustness GL_EXT_texture_buffer "
-    "GL_EXT_texture_border_clamp GL_EXT_texture_cube_map_array GL_EXT_draw_buffers_indexed "
-    "GL_EXT_geometry_shader GL_EXT_gpu_shader5 GL_EXT_shader_io_blocks "
-    "GL_EXT_tessellation_shader GL_EXT_primitive_bounding_box GL_EXT_protected_textures "
-    "GL_KHR_blend_equation_advanced GL_KHR_blend_equation_advanced_coherent "
-    "GL_KHR_sample_shading GL_KHR_robustness GL_KHR_robust_buffer_access_behavior "
-    "GL_EXT_buffer_storage GL_EXT_polygon_offset_clamp GL_EXT_YUV_target "
-    "GL_QCOM_alpha_test GL_QCOM_tiled_rendering GL_QCOM_extended_get GL_QCOM_extended_get2 "
-    "GL_QCOM_binning_control GL_QCOM_driver_control "
-    "GL_QCOM_framebuffer_fbo_completeness_query "
-    "GL_QCOM_shader_framebuffer_fetch_non_coherent GL_OVR_multiview GL_OVR_multiview2 "
-    "GL_ANDROID_extension_pack_es31a";
-
-static const char kGlExtensionsMaliValhall[] =
-    "GL_EXT_debug_marker GL_ARM_rgba8 GL_ARM_mali_shader_binary GL_OES_depth24 "
-    "GL_OES_depth_texture GL_OES_depth_texture_cube_map GL_OES_packed_depth_stencil "
-    "GL_OES_rgb8_rgba8 GL_EXT_read_format_bgra GL_OES_compressed_paletted_texture "
-    "GL_OES_compressed_ETC1_RGB8_texture GL_OES_standard_derivatives GL_OES_EGL_image "
-    "GL_OES_EGL_image_external GL_OES_EGL_image_external_essl3 GL_OES_EGL_sync "
-    "GL_OES_texture_npot GL_OES_vertex_half_float GL_OES_required_internalformat "
-    "GL_OES_vertex_array_object GL_OES_mapbuffer GL_EXT_texture_format_BGRA8888 "
-    "GL_EXT_texture_rg GL_EXT_texture_type_2_10_10_REV GL_OES_texture_compression_astc "
-    "GL_KHR_texture_compression_astc_ldr GL_KHR_texture_compression_astc_hdr "
-    "GL_KHR_debug GL_EXT_occlusion_query_boolean "
-    "GL_OES_texture_storage_multisample_2d_array GL_OES_shader_image_atomic "
-    "GL_EXT_shadow_samplers GL_EXT_texture_storage GL_EXT_draw_buffers "
-    "GL_EXT_blend_minmax GL_EXT_discard_framebuffer GL_OES_get_program_binary "
-    "GL_OES_texture_3D GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_s3tc "
-    "GL_EXT_robustness GL_EXT_texture_sRGB_decode GL_OES_texture_stencil8 "
-    "GL_EXT_shader_pixel_local_storage GL_ARM_shader_framebuffer_fetch "
-    "GL_ARM_shader_framebuffer_fetch_depth_stencil "
-    "GL_ARM_texture_unnormalized_coordinates GL_KHR_blend_equation_advanced "
-    "GL_KHR_blend_equation_advanced_coherent GL_OES_sample_shading "
-    "GL_OES_sample_variables GL_OES_shader_multisample_interpolation "
-    "GL_EXT_multisampled_render_to_texture GL_EXT_multisampled_render_to_texture2 "
-    "GL_KHR_robustness GL_KHR_robust_buffer_access_behavior GL_EXT_color_buffer_float "
-    "GL_EXT_color_buffer_half_float GL_EXT_geometry_shader GL_EXT_gpu_shader5 "
-    "GL_EXT_primitive_bounding_box GL_EXT_shader_io_blocks GL_EXT_tessellation_shader "
-    "GL_EXT_texture_buffer GL_EXT_texture_cube_map_array GL_OES_copy_image "
-    "GL_EXT_draw_buffers_indexed GL_EXT_buffer_storage GL_EXT_clip_cull_distance "
-    "GL_EXT_protected_textures GL_OVR_multiview GL_OVR_multiview2 "
-    "GL_OVR_multiview_multisampled_render_to_texture GL_ANDROID_extension_pack_es31a";
-
-std::string filterGlExtensions(const char* real) {
     // 1. Authoritative: check custom extensions file configured in profile
     std::string custom = get("GLExtensions");
     if (custom.empty()) custom = get("gl_extensions");
     if (!custom.empty()) return custom;
 
     // 2. Check spoofed GPU vendor and renderer
-    std::string vendor   = get("GLVendor");
-    std::string renderer = get("GLRender");
+    std::string targetVendor = get("GLVendor");
+    std::string targetRender = get("GLRender");
 
-    // If native Mali-G72 on Exynos 9810 and not spoofing other GPU, keep real hardware extensions
-    if (vendor.empty() || (vendor.find("ARM") != std::string::npos && renderer.find("Mali-G72") != std::string::npos)) {
-        return real ? std::string(real) : std::string();
+    // Nếu không có profile hoặc profile đích là ARM/Mali: Giữ nguyên 100% extensions thật
+    if ((targetVendor.empty() && targetRender.empty()) ||
+        (targetVendor.find("ARM") != std::string::npos) ||
+        (targetRender.find("Mali") != std::string::npos)) {
+        return std::string(rawExtensions);
     }
 
-    // If spoofing Qualcomm / Adreno
-    if (vendor.find("Qualcomm") != std::string::npos || renderer.find("Adreno") != std::string::npos) {
-        if (renderer.find("740") != std::string::npos || renderer.find("730") != std::string::npos || renderer.find("7") != std::string::npos) {
-            return kGlExtensionsAdreno740;
+    // Nếu profile đích là Qualcomm (Adreno) hoặc khác: Lọc bỏ toàn bộ token GL_MALI_* và GL_ARM_*
+    std::istringstream stream(rawExtensions);
+    std::string token;
+    std::string result;
+
+    while (stream >> token) {
+        if (token.rfind("GL_MALI_", 0) == 0 || token.rfind("GL_ARM_", 0) == 0) {
+            continue; // Bỏ qua extension đặc thù của Mali để không bị lộ
         }
-        return kGlExtensionsAdreno6xx;
+        if (!result.empty()) {
+            result += " ";
+        }
+        result += token;
     }
 
-    // If spoofing modern ARM Mali (e.g. Mali-G78, Mali-G710, Mali-G68, Mali-G57, Mali-G52)
-    if (vendor.find("ARM") != std::string::npos || renderer.find("Mali") != std::string::npos) {
-        return kGlExtensionsMaliValhall;
-    }
-
-    return real ? std::string(real) : std::string();
+    return result;
 }
 
+static pid_t s_last_pid = 0;
+static long long s_cached_offset = -1;
 long long uptimeOffsetMs() {
-    // ProfileManager stores the offset in milliseconds in `realtime`.
-    const std::string value = get("realtime");
-    if (value.empty()) return 0;
-
-    errno = 0;
-    char* end = nullptr;
-    const long long offset = strtoll(value.c_str(), &end, 10);
-    if (end == value.c_str() || errno == ERANGE || offset < 0) return 0;
-
-    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') ++end;
-    return *end == '\0' ? offset : 0;
+    // Chỉ áp dụng cho app người dùng (UID >= 10000), giữ nguyên cho system_server
+    if ((getuid() / AID_APP_START) < 1) return 0;
+    pid_t current_pid = getpid();
+    if (s_last_pid != current_pid) {
+        s_last_pid = current_pid;
+        s_cached_offset = -1; // reset cache khi process mới fork
+    }
+    if (s_cached_offset < 0) {
+        std::string v = get("realtime");
+        if (v.empty()) v = get("uptime");
+        if (!v.empty()) {
+            long long ms = strtoll(v.c_str(), nullptr, 10);
+            s_cached_offset = (ms < 0) ? 0 : ms;
+        } else {
+            s_cached_offset = 0;
+        }
+    }
+    return s_cached_offset;
 }
 
 }  // namespace hwcfg

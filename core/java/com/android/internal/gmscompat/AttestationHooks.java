@@ -24,9 +24,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.SystemProperties;
 import android.text.TextUtils;
-import android.util.Log;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -34,18 +32,31 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 
 /** @hide */
 public final class AttestationHooks {
-    private static final String TAG = "AttestationHooks";
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-
     private static final String PACKAGE_GMS = "com.google.android.gms";
     private static final String PACKAGE_FINSKY = "com.android.vending";
     private static final String PACKAGE_GSF = "com.google.android.gsf";
     private static final String PROCESS_UNSTABLE = "com.google.android.gms.unstable";
     private static final String DATA_FILE = "gms_certified_props.json";
+
+    private static final Set<String> VALID_BUILD_FIELDS = new HashSet<>(Arrays.asList(
+        "ID", "DISPLAY", "PRODUCT", "DEVICE", "BOARD", "CPU_ABI", "CPU_ABI2",
+        "MANUFACTURER", "BRAND", "MODEL", "SOC_MANUFACTURER", "SOC_MODEL",
+        "BOOTLOADER", "RADIO", "HARDWARE", "SKU", "ODM_SKU", "SERIAL",
+        "TYPE", "TAGS", "FINGERPRINT", "TIME", "USER", "HOST"
+    ));
+
+    private static final Set<String> VALID_VERSION_FIELDS = new HashSet<>(Arrays.asList(
+        "INCREMENTAL", "RELEASE", "BASE_OS", "SECURITY_PATCH",
+        "MEDIA_PERFORMANCE_CLASS", "SDK", "SDK_INT", "DEVICE_INITIAL_SDK_INT",
+        "PREVIEW_SDK_INT", "CODENAME"
+    ));
 
     private static volatile boolean sIsGms = false;
     private static volatile boolean sIsUnstable = false;
@@ -63,8 +74,6 @@ public final class AttestationHooks {
 
         if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(processName)) return;
 
-        final boolean spoofGms = SystemProperties.getBoolean("persist.sys.hwcfg.gms", false);
-
         // =========================================================================
         // NHÁNH 1: DÀNH RIÊNG CHO GMS & CH PLAY (PLAY INTEGRITY CERTIFICATION)
         // =========================================================================
@@ -76,9 +85,6 @@ public final class AttestationHooks {
             }
 
             setGmsCertifiedProps();
-            Log.w("GmsAttestTrace", "[INIT GMS] pkg=" + packageName + " proc=" + processName
-                    + " MODEL=" + Build.MODEL + " FINGERPRINT=" + Build.FINGERPRINT
-                    + " FIRST_API=" + Build.VERSION.DEVICE_INITIAL_SDK_INT);
             return;
         }
 
@@ -107,7 +113,6 @@ public final class AttestationHooks {
             if (f.exists()) {
                 String content = readFromFile(f);
                 if (!TextUtils.isEmpty(content) && loadFromPifProp(content)) {
-                    Log.i(TAG, "Loaded GMS certified props from " + p);
                     return;
                 }
             }
@@ -151,9 +156,7 @@ public final class AttestationHooks {
                 String value = parsedProps.getString(key);
                 applyPropField(key, value);
             }
-        } catch (JSONException e) {
-            Log.e(TAG, "Lỗi phân giải JSON certified props", e);
-        }
+        } catch (Throwable ignored) {}
     }
 
     private static boolean loadFromPifProp(String content) {
@@ -174,28 +177,23 @@ public final class AttestationHooks {
         return applied;
     }
 
-    private static void applyPropField(String key, String value) {
-        if (key.startsWith("VERSION.")) {
-            setVersionField(key.substring(8), value);
-        } else if (key.startsWith("VERSION:")) {
-            setVersionField(key.substring(8), value);
-        } else if ("RELEASE".equalsIgnoreCase(key) || "INCREMENTAL".equalsIgnoreCase(key)
-                || "SECURITY_PATCH".equalsIgnoreCase(key) || "DEVICE_INITIAL_SDK_INT".equalsIgnoreCase(key)
-                || "SDK_INT".equalsIgnoreCase(key) || "PREVIEW_SDK_INT".equalsIgnoreCase(key)
-                || "FIRST_API_LEVEL".equalsIgnoreCase(key)) {
-            if ("FIRST_API_LEVEL".equalsIgnoreCase(key)) {
-                setVersionField("DEVICE_INITIAL_SDK_INT", value);
-            } else {
-                setVersionField(key, value);
-            }
-        } else {
-            setBuildField(key, value);
+    private static void applyPropField(String rawKey, String value) {
+        if (TextUtils.isEmpty(rawKey) || value == null) return;
+        String key = rawKey.trim();
+        if (key.startsWith("VERSION.") || key.startsWith("VERSION:")) {
+            key = key.substring(8).trim();
+        }
+        String upperKey = key.toUpperCase();
+
+        if ("FIRST_API_LEVEL".equals(upperKey) || "DEVICE_INITIAL_SDK_INT".equals(upperKey)) {
+            setVersionField("DEVICE_INITIAL_SDK_INT", value);
+        } else if (VALID_VERSION_FIELDS.contains(upperKey)) {
+            setVersionField(upperKey, value);
+        } else if (VALID_BUILD_FIELDS.contains(upperKey)) {
+            setBuildField(upperKey, value);
         }
     }
 
-    /**
-     * Gán Build Fields động từ file / persist / sys.hwcfg cho các app thông thường
-     */
     /**
      * Gán Build Fields động từ profile thống nhất (/data/vendor/hwcfg/profile.json hoặc sys.hwcfg)
      * Nếu không có cấu hình tùy biến -> Giữ nguyên giá trị mặc định của hệ thống ROM.
@@ -231,13 +229,7 @@ public final class AttestationHooks {
                         String k = keys.next();
                         String v = obj.optString(k, "");
                         if (TextUtils.isEmpty(v)) continue;
-
-                        if ("SECURITY_PATCH".equalsIgnoreCase(k) || "RELEASE".equalsIgnoreCase(k)
-                                || "INCREMENTAL".equalsIgnoreCase(k) || "SDK_INT".equalsIgnoreCase(k)) {
-                            setVersionField(k.toUpperCase(), v);
-                        } else {
-                            setBuildField(k.toUpperCase(), v);
-                        }
+                        applyPropField(k, v);
                     }
                     if (!obj.has("BOOTLOADER") && !obj.has("bootloader")) {
                         String bl = obj.optString("INCREMENTAL", obj.optString("incremental", ""));
@@ -245,10 +237,10 @@ public final class AttestationHooks {
                         if (TextUtils.isEmpty(bl)) bl = getHwcfgValue("bootloader");
                         if (!TextUtils.isEmpty(bl)) setBuildField("BOOTLOADER", bl);
                     }
+                    setBuildField("TYPE", "user");
+                    setBuildField("TAGS", "release-keys");
                     return; // Đã nạp thành công từ unified profile
-                } catch (Exception e) {
-                    Log.e(TAG, "Lỗi phân giải /data/vendor/hwcfg/profile.json", e);
-                }
+                } catch (Throwable ignored) {}
             }
         }
 
@@ -275,7 +267,7 @@ public final class AttestationHooks {
         if (TextUtils.isEmpty(bootloader)) bootloader = incremental;
         if (TextUtils.isEmpty(bootloader)) bootloader = buildId;
 
-        // Chỉ ghi đè khi người dùng có cấu hình cụ thể
+        // Chỉ ghi đè khi có cấu hình cụ thể
         if (!TextUtils.isEmpty(model)) setBuildField("MODEL", model);
         if (!TextUtils.isEmpty(brand)) setBuildField("BRAND", brand);
         if (!TextUtils.isEmpty(manufacturer)) setBuildField("MANUFACTURER", manufacturer);
@@ -285,12 +277,8 @@ public final class AttestationHooks {
         if (!TextUtils.isEmpty(socModel)) setBuildField("SOC_MODEL", socModel);
         if (!TextUtils.isEmpty(socMaker)) setBuildField("SOC_MANUFACTURER", socMaker);
         if (!TextUtils.isEmpty(secPatch)) setVersionField("SECURITY_PATCH", secPatch);
-        if (!TextUtils.isEmpty(serial)) {
-            setBuildField("SERIAL", serial);
-        }
-        if (!TextUtils.isEmpty(bootloader)) {
-            setBuildField("BOOTLOADER", bootloader);
-        }
+        if (!TextUtils.isEmpty(serial)) setBuildField("SERIAL", serial);
+        if (!TextUtils.isEmpty(bootloader)) setBuildField("BOOTLOADER", bootloader);
         if (!TextUtils.isEmpty(board)) setBuildField("BOARD", board);
         if (!TextUtils.isEmpty(hardware)) setBuildField("HARDWARE", hardware);
         if (!TextUtils.isEmpty(buildId)) setBuildField("ID", buildId);
@@ -328,13 +316,14 @@ public final class AttestationHooks {
         final int gmsUid;
         try {
             gmsUid = context.getPackageManager().getApplicationInfo(PACKAGE_GMS, 0).uid;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             return false;
         }
         return gmsUid == callingUid;
     }
 
     private static void setBuildField(String key, String value) {
+        if (!VALID_BUILD_FIELDS.contains(key)) return;
         try {
             Field field = Build.class.getDeclaredField(key);
             field.setAccessible(true);
@@ -346,12 +335,11 @@ public final class AttestationHooks {
                 field.set(null, value);
             }
             field.setAccessible(false);
-        } catch (Exception e) {
-            Log.e(TAG, "Lỗi gán Build." + key + ": " + e.getMessage());
-        }
+        } catch (Throwable ignored) {}
     }
 
     private static void setVersionField(String key, Object value) {
+        if (!VALID_VERSION_FIELDS.contains(key)) return;
         try {
             Field field = Build.VERSION.class.getDeclaredField(key);
             field.setAccessible(true);
@@ -361,9 +349,7 @@ public final class AttestationHooks {
                 field.set(null, value);
             }
             field.setAccessible(false);
-        } catch (Exception e) {
-            Log.e(TAG, "Lỗi gán Build.VERSION." + key + ": " + e.getMessage());
-        }
+        } catch (Throwable ignored) {}
     }
 
     public static boolean isGmsProcess() {
@@ -383,17 +369,16 @@ public final class AttestationHooks {
         return false;
     }
 
-
     private static String readFromFile(File file) {
+        if (file == null || !file.exists() || !file.canRead()) return "";
         StringBuilder content = new StringBuilder();
-        if (file.exists() && file.canRead()) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    content.append(line).append("\n");
-                }
-            } catch (IOException ignored) {}
-        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+        } catch (Throwable ignored) {}
         return content.toString().trim();
     }
 }
+

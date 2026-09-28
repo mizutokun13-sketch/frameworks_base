@@ -74,12 +74,29 @@ public final class HmaEngine {
         "catch_.me_.if_.you_.can_",
         "com.mwr.dz",
         "org.adaway",
+        // Cloner & Parallel Space apps
+        "org.derpfest.parallelspace",
+        "com.lbe.parallel.intl",
+        "com.lbe.parallel.intl.arm64",
+        "com.lbe.parallel",
+        "com.excelliance.dualaid",
+        "com.polestar.super.clone",
+        "com.applisto.appcloner",
+        "com.cloneapp.parallelspace.dualspace",
+        "com.vphonegaga.titan",
+        "com.f1player",
+        "com.x8zs.sandbox",
+        "com.twoyi",
+        "com.gspace.android",
         // Custom ROM packages — hide from detection apps
         "org.lineageos.updater",
         "org.lineageos.recorder",
         "org.lineageos.setupwizard",
         "org.lineageos.jelly",
         "org.lineageos.etar",
+        "org.derpfest.flash",
+        "org.derpfest.prospect",
+        "org.derpfest.walls",
         "io.chaldeaprjkt.gamespace"
     ));
 
@@ -378,6 +395,10 @@ public final class HmaEngine {
                pkg.startsWith("com.topjohnwu.") ||
                pkg.startsWith("org.lsposed.") ||
                pkg.startsWith("me.weishu.kernelsu") ||
-               pkg.startsWith("com.rifsxd.ksu");
+               pkg.startsWith("com.rifsxd.ksu") ||
+               pkg.startsWith("org.derpfest.") ||
+               pkg.startsWith("com.derp.") ||
+               pkg.startsWith("org.lineageos.") ||
+               pkg.startsWith("com.lbe.parallel");
     }
 }
