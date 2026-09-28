@@ -164,6 +164,28 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
+        Certificate[] emulatedChain = com.android.internal.gmscompat.KeyboxProvider.getEmulatedChain(alias);
+        if (emulatedChain != null) {
+            Log.i(TAG, "[KEYSTORE TRACE] Returning emulated Keybox certificate chain (len=" + emulatedChain.length + ") for alias=" + alias);
+            if (!com.android.internal.gmscompat.AttestationHooks.isGmsProcess()) {
+                if (emulatedChain.length > 1) {
+                    Certificate[] spoofedChain = emulatedChain.clone();
+                    final Certificate origRoot = spoofedChain[spoofedChain.length - 1];
+                    if (origRoot instanceof X509Certificate) {
+                        spoofedChain[spoofedChain.length - 1] = new AttestationRootCertificateWrapper((X509Certificate) origRoot);
+                    }
+                    return spoofedChain;
+                }
+            }
+            return emulatedChain;
+        }
+
+        if (com.android.internal.gmscompat.AttestationHooks.isGmsProcess()
+                && com.android.internal.gmscompat.AttestationHooks.onEngineGetCertificateChain()) {
+            Log.w(TAG, "[KEYSTORE TRACE] THROWING UnsupportedOperationException to force software fallback for " + alias);
+            throw new UnsupportedOperationException("Attestation disabled for GMS/Play Integrity");
+        }
+
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null || response.metadata.certificate == null) {
@@ -190,11 +212,25 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
         }
         caList[0] = leaf;
 
+        /* [FIX HSBC THREAT 39]: Đối với app bên thứ 3 (không phải GMS), bảo vệ root certificate
+         * để khi app/RASP kiểm tra SHA-256 public key của root cert, luôn nhận diện chuẩn Google Root */
+        if (caList.length > 1 && !com.android.internal.gmscompat.AttestationHooks.isGmsProcess()) {
+            final Certificate origRoot = caList[caList.length - 1];
+            if (origRoot instanceof X509Certificate) {
+                caList[caList.length - 1] = new AttestationRootCertificateWrapper((X509Certificate) origRoot);
+            }
+        }
+
         return caList;
     }
 
     @Override
     public Certificate engineGetCertificate(String alias) {
+        Certificate[] emulatedChain = com.android.internal.gmscompat.KeyboxProvider.getEmulatedChain(alias);
+        if (emulatedChain != null && emulatedChain.length > 0) {
+            return emulatedChain[0];
+        }
+
         KeyEntryResponse response = getKeyMetadata(alias);
 
         if (response == null) {
@@ -961,6 +997,7 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public void engineDeleteEntry(String alias) throws KeyStoreException {
+        com.android.internal.gmscompat.KeyboxProvider.removeEmulatedChain(alias);
         KeyDescriptor descriptor = makeKeyDescriptor(alias);
         try {
             mKeyStore.deleteKey(descriptor);
@@ -997,6 +1034,10 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
     public boolean engineContainsAlias(String alias) {
         if (alias == null) {
             throw new NullPointerException("alias == null");
+        }
+
+        if (com.android.internal.gmscompat.KeyboxProvider.hasEmulatedChain(alias)) {
+            return true;
         }
 
         return getKeyMetadata(alias) != null;
@@ -1178,5 +1219,148 @@ public class AndroidKeyStoreSpi extends KeyStoreSpi {
                     "Entry must be a PrivateKeyEntry, SecretKeyEntry, WrappedKeyEntry "
                             + "or TrustedCertificateEntry; was " + entry);
         }
+    }
+
+    private interface SpoofedGoogleKey {
+        java.security.PublicKey getOriginalKey();
+    }
+
+    private static final byte[] GOOGLE_EC_MAGIC = new byte[] {
+        (byte)0x47, (byte)0x4F, (byte)0x4F, (byte)0x47, (byte)0x5F, (byte)0x45, (byte)0x43, (byte)0x5F, (byte)0x52, (byte)0x4F, (byte)0x4F, (byte)0x54
+    }; // "GOOG_EC_ROOT" (12 bytes)
+
+    private static final byte[] GOOGLE_RSA_MAGIC = new byte[] {
+        (byte)0x47, (byte)0x4F, (byte)0x4F, (byte)0x47, (byte)0x5F, (byte)0x52, (byte)0x53, (byte)0x41, (byte)0x5F, (byte)0x52, (byte)0x4F, (byte)0x4F, (byte)0x54
+    }; // "GOOG_RSA_ROOT" (13 bytes)
+
+    private static byte[] prependMagic(byte[] magic, byte[] raw) {
+        if (raw == null) return null;
+        byte[] marked = new byte[magic.length + raw.length];
+        System.arraycopy(magic, 0, marked, 0, magic.length);
+        System.arraycopy(raw, 0, marked, magic.length, raw.length);
+        return marked;
+    }
+
+    private static class AttestationRootCertificateWrapper extends X509Certificate {
+        private final X509Certificate mDelegate;
+        private java.security.PublicKey mWrappedPubKey;
+
+        AttestationRootCertificateWrapper(X509Certificate delegate) {
+            mDelegate = delegate;
+        }
+
+        @Override
+        public java.security.PublicKey getPublicKey() {
+            if (mWrappedPubKey != null) return mWrappedPubKey;
+            final java.security.PublicKey origKey = mDelegate.getPublicKey();
+            if (origKey == null) return null;
+
+            if (origKey instanceof java.security.interfaces.ECPublicKey) {
+                mWrappedPubKey = new SpoofedGoogleECPublicKey((java.security.interfaces.ECPublicKey) origKey);
+            } else if (origKey instanceof java.security.interfaces.RSAPublicKey) {
+                mWrappedPubKey = new SpoofedGoogleRSAPublicKey((java.security.interfaces.RSAPublicKey) origKey);
+            } else {
+                mWrappedPubKey = new SpoofedGoogleGenericPublicKey(origKey);
+            }
+            return mWrappedPubKey;
+        }
+
+        @Override public Set<String> getCriticalExtensionOIDs() { return mDelegate.getCriticalExtensionOIDs(); }
+        @Override public byte[] getExtensionValue(String oid) { return mDelegate.getExtensionValue(oid); }
+        @Override public Set<String> getNonCriticalExtensionOIDs() { return mDelegate.getNonCriticalExtensionOIDs(); }
+        @Override public boolean hasUnsupportedCriticalExtension() { return mDelegate.hasUnsupportedCriticalExtension(); }
+        @Override public void checkValidity() throws CertificateExpiredException, CertificateNotYetValidException { mDelegate.checkValidity(); }
+        @Override public void checkValidity(Date date) throws CertificateExpiredException, CertificateNotYetValidException { mDelegate.checkValidity(date); }
+        @Override public int getBasicConstraints() { return mDelegate.getBasicConstraints(); }
+        @Override public java.security.Principal getIssuerDN() { return mDelegate.getIssuerDN(); }
+        @Override public boolean[] getIssuerUniqueID() { return mDelegate.getIssuerUniqueID(); }
+        @Override public boolean[] getKeyUsage() { return mDelegate.getKeyUsage(); }
+        @Override public Date getNotAfter() { return mDelegate.getNotAfter(); }
+        @Override public Date getNotBefore() { return mDelegate.getNotBefore(); }
+        @Override public java.math.BigInteger getSerialNumber() { return mDelegate.getSerialNumber(); }
+        @Override public String getSigAlgName() { return mDelegate.getSigAlgName(); }
+        @Override public String getSigAlgOID() { return mDelegate.getSigAlgOID(); }
+        @Override public byte[] getSigAlgParams() { return mDelegate.getSigAlgParams(); }
+        @Override public byte[] getSignature() { return mDelegate.getSignature(); }
+        @Override public java.security.Principal getSubjectDN() { return mDelegate.getSubjectDN(); }
+        @Override public boolean[] getSubjectUniqueID() { return mDelegate.getSubjectUniqueID(); }
+        @Override public byte[] getTBSCertificate() throws CertificateEncodingException { return mDelegate.getTBSCertificate(); }
+        @Override public int getVersion() { return mDelegate.getVersion(); }
+        @Override public byte[] getEncoded() throws CertificateEncodingException { return mDelegate.getEncoded(); }
+
+        @Override
+        public void verify(java.security.PublicKey key) throws CertificateException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException, java.security.SignatureException {
+            if (key instanceof SpoofedGoogleKey) {
+                mDelegate.verify(((SpoofedGoogleKey) key).getOriginalKey());
+                return;
+            }
+            mDelegate.verify(key);
+        }
+
+        @Override
+        public void verify(java.security.PublicKey key, String sigProvider) throws CertificateException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException, java.security.SignatureException {
+            if (key instanceof SpoofedGoogleKey) {
+                mDelegate.verify(((SpoofedGoogleKey) key).getOriginalKey(), sigProvider);
+                return;
+            }
+            mDelegate.verify(key, sigProvider);
+        }
+
+        @Override public String toString() { return mDelegate.toString(); }
+    }
+
+    private static class SpoofedGoogleECPublicKey implements java.security.interfaces.ECPublicKey, SpoofedGoogleKey {
+        private static final long serialVersionUID = 1L;
+        private final java.security.interfaces.ECPublicKey mOriginal;
+
+        SpoofedGoogleECPublicKey(java.security.interfaces.ECPublicKey orig) {
+            mOriginal = orig;
+        }
+
+        @Override public java.security.PublicKey getOriginalKey() { return mOriginal; }
+        @Override public java.security.spec.ECPoint getW() { return mOriginal.getW(); }
+        @Override public java.security.spec.ECParameterSpec getParams() { return mOriginal.getParams(); }
+        @Override public String getAlgorithm() { return mOriginal.getAlgorithm(); }
+        @Override public String getFormat() { return mOriginal.getFormat(); }
+        @Override public byte[] getEncoded() { return prependMagic(GOOGLE_EC_MAGIC, mOriginal.getEncoded()); }
+        @Override public boolean equals(Object obj) { return mOriginal.equals(obj); }
+        @Override public int hashCode() { return mOriginal.hashCode(); }
+        @Override public String toString() { return mOriginal.toString(); }
+    }
+
+    private static class SpoofedGoogleRSAPublicKey implements java.security.interfaces.RSAPublicKey, SpoofedGoogleKey {
+        private static final long serialVersionUID = 1L;
+        private final java.security.interfaces.RSAPublicKey mOriginal;
+
+        SpoofedGoogleRSAPublicKey(java.security.interfaces.RSAPublicKey orig) {
+            mOriginal = orig;
+        }
+
+        @Override public java.security.PublicKey getOriginalKey() { return mOriginal; }
+        @Override public java.math.BigInteger getPublicExponent() { return mOriginal.getPublicExponent(); }
+        @Override public java.math.BigInteger getModulus() { return mOriginal.getModulus(); }
+        @Override public String getAlgorithm() { return mOriginal.getAlgorithm(); }
+        @Override public String getFormat() { return mOriginal.getFormat(); }
+        @Override public byte[] getEncoded() { return prependMagic(GOOGLE_RSA_MAGIC, mOriginal.getEncoded()); }
+        @Override public boolean equals(Object obj) { return mOriginal.equals(obj); }
+        @Override public int hashCode() { return mOriginal.hashCode(); }
+        @Override public String toString() { return mOriginal.toString(); }
+    }
+
+    private static class SpoofedGoogleGenericPublicKey implements java.security.PublicKey, SpoofedGoogleKey {
+        private static final long serialVersionUID = 1L;
+        private final java.security.PublicKey mOriginal;
+
+        SpoofedGoogleGenericPublicKey(java.security.PublicKey orig) {
+            mOriginal = orig;
+        }
+
+        @Override public java.security.PublicKey getOriginalKey() { return mOriginal; }
+        @Override public String getAlgorithm() { return mOriginal.getAlgorithm(); }
+        @Override public String getFormat() { return mOriginal.getFormat(); }
+        @Override public byte[] getEncoded() { return prependMagic(GOOGLE_EC_MAGIC, mOriginal.getEncoded()); }
+        @Override public boolean equals(Object obj) { return mOriginal.equals(obj); }
+        @Override public int hashCode() { return mOriginal.hashCode(); }
+        @Override public String toString() { return mOriginal.toString(); }
     }
 }

@@ -61,10 +61,13 @@ public final class KeyboxProvider {
     private static final String ATTESTATION_OID = "1.3.6.1.4.1.11129.2.1.17";
 
     private static final String[] KEYBOX_PATHS = {
-        "/data/local/tmp/keybox.xml",
         "/system/etc/security/keybox.xml",
+        "/system/etc/keybox.xml",
+        "/product/etc/security/keybox.xml",
         "/vendor/etc/security/keybox.xml",
-        "/system/etc/keybox.xml"
+        "/data/system/keybox.xml",
+        "/data/vendor/keybox/keybox.xml",
+        "/data/local/tmp/keybox.xml"
     };
 
     private static class KeyboxData {
@@ -107,6 +110,12 @@ public final class KeyboxProvider {
     public static Certificate[] getEmulatedChain(String alias) {
         if (alias == null) return null;
         return sEmulatedChains.get(alias);
+    }
+
+    public static void removeEmulatedChain(String alias) {
+        if (alias != null) {
+            sEmulatedChains.remove(alias);
+        }
     }
 
     public static void onKeyGenerated(String alias, PublicKey publicKey, byte[] challenge,

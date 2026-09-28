@@ -353,7 +353,20 @@ public final class AttestationHooks {
     }
 
     public static boolean isGmsProcess() {
-        return sIsGms;
+        if (sIsGms) return true;
+        try {
+            String pName = Application.getProcessName();
+            if (pName != null && (pName.startsWith(PACKAGE_GMS) || pName.startsWith(PACKAGE_FINSKY) || pName.startsWith(PACKAGE_GSF))) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        try {
+            String pName = android.app.ActivityThread.currentProcessName();
+            if (pName != null && (pName.startsWith(PACKAGE_GMS) || pName.startsWith(PACKAGE_FINSKY) || pName.startsWith(PACKAGE_GSF))) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     public static boolean isUnstableProcess() {

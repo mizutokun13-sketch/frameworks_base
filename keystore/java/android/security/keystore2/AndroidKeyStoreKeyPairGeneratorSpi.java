@@ -661,39 +661,6 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             throw new IllegalStateException("Not initialized");
         }
 
-        // Kiểm tra qua ClassLoader: Nếu là tiến trình GMS hoặc app có tích hợp GMS SDK thì cho qua,
-        // ngược lại từ chối bằng ProviderException để tránh lộ Fake Keybox / Knox cho RASP ngân hàng.
-        // if (mSpec.getAttestationChallenge() != null) {
-        //     if (!com.android.internal.gmscompat.AttestationHooks.isGmsProcess()) {
-        //         boolean hasGmsSdk = false;
-        //         try {
-        //             ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        //             if (cl != null) {
-        //                 try {
-        //                     Class.forName("com.google.android.gms.common.GoogleApiAvailability", false, cl);
-        //                     hasGmsSdk = true;
-        //                 } catch (ClassNotFoundException e1) {
-        //                     try {
-        //                         Class.forName("com.google.android.play.core.integrity.StandardIntegrityManager", false, cl);
-        //                         hasGmsSdk = true;
-        //                     } catch (ClassNotFoundException e2) {
-        //                         try {
-        //                             Class.forName("com.google.android.gms.tasks.Task", false, cl);
-        //                             hasGmsSdk = true;
-        //                         } catch (ClassNotFoundException ignored) {}
-        //                     }
-        //                 }
-        //             }
-        //         } catch (Throwable ignored) {
-        //             hasGmsSdk = false;
-        //         }
-
-        //         if (!hasGmsSdk) {
-        //             throw new java.security.ProviderException("Hardware key attestation is not supported on this device");
-        //         }
-        //     }
-        // }
-
         final @SecurityLevel int securityLevel =
                 mSpec.isStrongBoxBacked()
                         ? SecurityLevel.STRONGBOX
@@ -721,7 +688,13 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         try {
             KeyStoreSecurityLevel iSecurityLevel = mKeyStore.getSecurityLevel(securityLevel);
 
-            KeyMetadata metadata = iSecurityLevel.generateKey(descriptor, mAttestKeyDescriptor,
+            KeyDescriptor attestKeyDescriptor = mAttestKeyDescriptor;
+            if (com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()
+                    && mSpec.getAttestationChallenge() != null) {
+                attestKeyDescriptor = null;
+            }
+
+            KeyMetadata metadata = iSecurityLevel.generateKey(descriptor, attestKeyDescriptor,
                     constructKeyGenerationArguments(), flags, additionalEntropy);
 
             AndroidKeyStorePublicKey publicKey =
@@ -739,6 +712,16 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
                 Log.d(TAG, "Couldn't connect to the RemoteProvisioner backend.", e);
             }
             success = true;
+            if (mSpec.getAttestationChallenge() != null
+                    && com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
+                com.android.internal.gmscompat.KeyboxProvider.onKeyGenerated(
+                        mEntryAlias,
+                        publicKey,
+                        mSpec.getAttestationChallenge(),
+                        mSpec.getPurposes(),
+                        mKeySizeBits,
+                        mKeymasterAlgorithm == KeymasterDefs.KM_ALGORITHM_EC);
+            }
             KeyPair kp = new KeyPair(publicKey, publicKey.getPrivateKey());
             return new GenerateKeyPairHelperResult(0, kp);
         } catch (KeyStoreException e) {
@@ -826,6 +809,11 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         byte[] challenge = mSpec.getAttestationChallenge();
 
         if (challenge != null) {
+            if (com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
+                Log.d(TAG, "KeyboxProvider is available; skipping native keymaster attestation challenge parameters");
+                return;
+            }
+
             params.add(KeyStore2ParameterUtils.makeBytes(
                     KeymasterDefs.KM_TAG_ATTESTATION_CHALLENGE, challenge
             ));
