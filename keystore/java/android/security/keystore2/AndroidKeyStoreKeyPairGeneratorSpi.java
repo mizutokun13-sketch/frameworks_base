@@ -689,7 +689,8 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             KeyStoreSecurityLevel iSecurityLevel = mKeyStore.getSecurityLevel(securityLevel);
 
             KeyDescriptor attestKeyDescriptor = mAttestKeyDescriptor;
-            if (com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()
+            if (!com.android.internal.gmscompat.AttestationHooks.isGmsProcess()
+                    && com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()
                     && mSpec.getAttestationChallenge() != null) {
                 attestKeyDescriptor = null;
             }
@@ -713,6 +714,7 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             }
             success = true;
             if (mSpec.getAttestationChallenge() != null
+                    && !com.android.internal.gmscompat.AttestationHooks.isGmsProcess()
                     && com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
                 com.android.internal.gmscompat.KeyboxProvider.onKeyGenerated(
                         mEntryAlias,
@@ -809,7 +811,8 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         byte[] challenge = mSpec.getAttestationChallenge();
 
         if (challenge != null) {
-            if (com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
+            if (!com.android.internal.gmscompat.AttestationHooks.isGmsProcess()
+                    && com.android.internal.gmscompat.KeyboxProvider.isKeyboxAvailable()) {
                 Log.d(TAG, "KeyboxProvider is available; skipping native keymaster attestation challenge parameters");
                 return;
             }
