@@ -1664,6 +1664,16 @@ public class ComputerEngine implements Computer {
             }
         }
 
+        long firstInstallTime = state.getFirstInstallTime();
+        long lastUpdateTime = ps.getLastUpdateTime();
+        long[] spoofedTimes = HmaEngine.getSpoofedPackageTimes(
+                this, ps.getPackageName(), ps.isSystem(), firstInstallTime, lastUpdateTime,
+                callingUid);
+        if (spoofedTimes != null && spoofedTimes.length == 2) {
+            firstInstallTime = spoofedTimes[0];
+            lastUpdateTime = spoofedTimes[1];
+        }
+
         AndroidPackage p = ps.getPkg();
         if (p != null) {
             // Compute GIDs only if requested
@@ -1675,7 +1685,7 @@ public class ComputerEngine implements Computer {
                     : mPermissionManager.getGrantedPermissions(ps.getPackageName(), userId);
 
             PackageInfo packageInfo = PackageInfoUtils.generate(p, gids, flags,
-                    state.getFirstInstallTime(), ps.getLastUpdateTime(), permissions, state, userId,
+                    firstInstallTime, lastUpdateTime, permissions, state, userId,
                     ps);
 
             if (packageInfo == null) {
@@ -1693,8 +1703,8 @@ public class ComputerEngine implements Computer {
             pi.setLongVersionCode(ps.getVersionCode());
             SharedUserApi sharedUser = mSettings.getSharedUserFromPackageName(pi.packageName);
             pi.sharedUserId = (sharedUser != null) ? sharedUser.getName() : null;
-            pi.firstInstallTime = state.getFirstInstallTime();
-            pi.lastUpdateTime = ps.getLastUpdateTime();
+            pi.firstInstallTime = firstInstallTime;
+            pi.lastUpdateTime = lastUpdateTime;
 
             ApplicationInfo ai = new ApplicationInfo();
             ai.packageName = ps.getPackageName();
