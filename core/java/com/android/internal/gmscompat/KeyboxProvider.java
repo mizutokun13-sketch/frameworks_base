@@ -60,15 +60,7 @@ public final class KeyboxProvider {
     private static final String TAG = "KeyboxProvider";
     private static final String ATTESTATION_OID = "1.3.6.1.4.1.11129.2.1.17";
 
-    private static final String[] KEYBOX_PATHS = {
-        "/system/etc/security/keybox.xml",
-        "/system/etc/keybox.xml",
-        "/product/etc/security/keybox.xml",
-        "/vendor/etc/security/keybox.xml",
-        "/data/system/keybox.xml",
-        "/data/vendor/keybox/keybox.xml",
-        "/data/local/tmp/keybox.xml"
-    };
+    private static final String KEYBOX_PATH = "/data/vendor/keybox/keybox.xml";
 
     private static class KeyboxData {
         PrivateKey privateKey;
@@ -77,25 +69,28 @@ public final class KeyboxProvider {
 
     private static final Map<String, KeyboxData> sKeyboxes = new ConcurrentHashMap<>();
     private static final Map<String, Certificate[]> sEmulatedChains = new ConcurrentHashMap<>();
-    private static boolean sInitialized = false;
+    private static long sLastModified = 0;
 
     private KeyboxProvider() {}
 
     public static synchronized void ensureInitialized() {
-        if (sInitialized) return;
-        sInitialized = true;
-
-        for (String path : KEYBOX_PATHS) {
-            File f = new File(path);
-            if (f.exists() && f.canRead()) {
-                Log.i(TAG, "Loading keybox from " + path);
-                if (loadKeyboxFromFile(f)) {
-                    Log.i(TAG, "Successfully loaded Keybox! Total algorithms: " + sKeyboxes.size());
-                    return;
-                }
-            }
+        File f = new File(KEYBOX_PATH);
+        if (!f.exists() || !f.canRead()) {
+            return;
         }
-        Log.w(TAG, "No valid keybox.xml found in standard locations.");
+        long mtime = f.lastModified();
+        if (!sKeyboxes.isEmpty() && mtime == sLastModified) {
+            return;
+        }
+        sKeyboxes.clear();
+        sEmulatedChains.clear();
+        Log.i(TAG, "Loading keybox from " + KEYBOX_PATH);
+        if (loadKeyboxFromFile(f)) {
+            sLastModified = mtime;
+            Log.i(TAG, "Successfully loaded Keybox! Total algorithms: " + sKeyboxes.size());
+        } else {
+            Log.w(TAG, "Failed to parse keybox at " + KEYBOX_PATH);
+        }
     }
 
     public static boolean isKeyboxAvailable() {

@@ -97,71 +97,27 @@ public final class AttestationHooks {
     }
 
     private static void setGmsCertifiedProps() {
-        // 1. Quét file pif.prop định dạng KEY=VALUE (chuẩn PIF/TrickyStore/Keybox)
-        String[] propPaths = {
-            "/data/vendor/keybox/pif.prop",
-            "/data/adb/tricky_store/pif.prop",
-            "/data/adb/modules/playintegrityfix/custom.pif.prop",
-            "/data/adb/modules/playintegrityfix/pif.prop",
-            "/system/etc/security/pif.prop",
-            "/vendor/etc/security/pif.prop",
-            "/system/etc/pif.prop",
-            "/vendor/etc/pif.prop"
-        };
-        for (String p : propPaths) {
-            File f = new File(p);
-            if (f.exists()) {
-                String content = readFromFile(f);
-                if (!TextUtils.isEmpty(content) && loadFromPifProp(content)) {
-                    return;
-                }
+        File pifFile = new File("/data/vendor/keybox/pif.prop");
+        if (pifFile.exists()) {
+            String content = readFromFile(pifFile);
+            if (!TextUtils.isEmpty(content)) {
+                loadFromPifProp(content);
             }
         }
-
-        // 2. Quét file JSON
-        File dataFile = new File(Environment.getDataSystemDirectory(), DATA_FILE);
-        String savedProps = readFromFile(dataFile);
-
-        if (TextUtils.isEmpty(savedProps)) {
-            File sysFile = new File("/system/etc/gms_certified_props.json");
-            if (sysFile.exists()) {
-                savedProps = readFromFile(sysFile);
-            }
-        }
-
-        if (TextUtils.isEmpty(savedProps)) {
-            File vendorFile = new File("/vendor/etc/gms_certified_props.json");
-            if (vendorFile.exists()) {
-                savedProps = readFromFile(vendorFile);
-            }
-        }
-
-        if (TextUtils.isEmpty(savedProps)) {
-            File tmpFile = new File("/data/local/tmp/gms_certified_props.json");
-            if (tmpFile.exists()) {
-                savedProps = readFromFile(tmpFile);
-            }
-        }
-
-        if (TextUtils.isEmpty(savedProps)) {
-            return;
-        }
-
-        try {
-            JSONObject parsedProps = new JSONObject(savedProps);
-            Iterator<String> keys = parsedProps.keys();
-
-            while (keys.hasNext()) {
-                String key = keys.next();
-                String value = parsedProps.getString(key);
-                applyPropField(key, value);
-            }
-        } catch (Throwable ignored) {}
     }
 
     private static boolean loadFromPifProp(String content) {
         if (TextUtils.isEmpty(content)) return false;
         boolean applied = false;
+        // Apply FINGERPRINT first so derived defaults can be overridden by explicit keys
+        for (String line : content.split("\\r?\\n")) {
+            line = line.trim();
+            if (line.startsWith("FINGERPRINT=")) {
+                applyPropField("FINGERPRINT", line.substring(12).trim());
+                applied = true;
+                break;
+            }
+        }
         for (String line : content.split("\\r?\\n")) {
             line = line.trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
@@ -184,6 +140,41 @@ public final class AttestationHooks {
             key = key.substring(8).trim();
         }
         String upperKey = key.toUpperCase();
+
+        // Chỉ chặn ghi đè RELEASE / SDK / SDK_INT cho tiến trình GMS / Play Store (sIsGms)
+        // để khớp với KM_TAG_OS_VERSION = 130000 của KeyMint Android 13.
+        // Các app bên thứ 3 (WantSpoof / hwcfg) vẫn được spoof RELEASE / SDK_INT bình thường.
+        if (sIsGms && ("RELEASE".equals(upperKey) || "SDK".equals(upperKey) || "SDK_INT".equals(upperKey))) {
+            return;
+        }
+
+        if ("FINGERPRINT".equals(upperKey)) {
+            setBuildField("FINGERPRINT", value);
+            // Tự động tách các trường chuẩn từ FINGERPRINT: brand/product/device:ver/id/inc:type/tags
+            try {
+                String[] colonParts = value.split(":");
+                if (colonParts.length == 3) {
+                    String[] devParts = colonParts[0].split("/");
+                    if (devParts.length == 3) {
+                        setBuildField("BRAND", devParts[0]);
+                        setBuildField("PRODUCT", devParts[1]);
+                        setBuildField("DEVICE", devParts[2]);
+                    }
+                    String[] verParts = colonParts[1].split("/");
+                    if (verParts.length == 3) {
+                        setBuildField("ID", verParts[1]);
+                        setBuildField("DISPLAY", verParts[1]);
+                        setVersionField("INCREMENTAL", verParts[2]);
+                    }
+                    String[] tagParts = colonParts[2].split("/");
+                    if (tagParts.length == 2) {
+                        setBuildField("TYPE", tagParts[0]);
+                        setBuildField("TAGS", tagParts[1]);
+                    }
+                }
+            } catch (Throwable ignored) {}
+            return;
+        }
 
         if ("FIRST_API_LEVEL".equals(upperKey) || "DEVICE_INITIAL_SDK_INT".equals(upperKey)) {
             setVersionField("DEVICE_INITIAL_SDK_INT", value);

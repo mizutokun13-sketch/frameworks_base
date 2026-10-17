@@ -40,19 +40,50 @@ std::string readFile(const char* path, size_t cap = 0x100000) {
     return s;
 }
 
+bool is_exempt_process() {
+    const char* prog = getprogname();
+    if (!prog || !*prog) return false;
+    return strstr(prog, "com.google.android.gms") != nullptr ||
+           strstr(prog, "com.android.vending") != nullptr ||
+           strstr(prog, "com.google.android.gsf") != nullptr ||
+           strstr(prog, "com.wantphone.wantspoof") != nullptr ||
+           strstr(prog, "com.android.systemui") != nullptr ||
+           strstr(prog, "com.android.launcher3") != nullptr ||
+           strstr(prog, "android.process.media") != nullptr ||
+           strstr(prog, "com.android.mtp") != nullptr;
+}
+
+bool is_zygote_preinit() {
+    const char* prog = getprogname();
+    if (!prog || !*prog) return true;
+    return !strncmp(prog, "zygote", 6) ||
+           !strncmp(prog, "usap", 4) ||
+           !strncmp(prog, "app_process", 11) ||
+           !strcmp(prog, "<pre-initialized>");
+}
+
 // Activation: the flag file exists or fallback to system utils or app UID >= 10000.
 bool is_enabled() {
     int pid = getpid();
     if (g_pid != pid) { g_pid = pid; g_state = 0; g_cache.clear(); }  // re-check per fork
+
+    // Always check exemption dynamically in case setArgV0 ran after fork
+    if (is_exempt_process()) {
+        g_state = -1;
+        return false;
+    }
+    if (is_zygote_preinit() && getuid() >= AID_APP_START) {
+        return false;
+    }
     if (g_state) return g_state == 1;
 
     // 0. System processes (system_server, com.android.systemui, etc.) must NEVER be spoofed
     if (getuid() < AID_APP_START && getuid() != 0) {
-        g_state = 2; // disabled
+        g_state = -1; // disabled
         return false;
     }
 
-    // 1. Always enabled for 3rd party apps
+    // 1. Always enabled for non-exempt 3rd party apps
     if (getuid() >= AID_APP_START) {
         g_state = 1;
         return true;
@@ -327,12 +358,31 @@ std::string get(const char* name) {
 std::string lookupProp(const char* key) {
     if (!key || !*key) return {};
 
-    if (!strcmp(key, "ro.debuggable"))   return enabled() ? std::string("0") : std::string();
-    if (!strcmp(key, "ro.secure"))       return enabled() ? std::string("1") : std::string();
-    if (!strcmp(key, "ro.build.type"))   return enabled() ? std::string("user") : std::string();
-    if (!strcmp(key, "ro.build.tags"))   return enabled() ? std::string("release-keys") : std::string();
+    bool is_app = (getuid() >= AID_APP_START);
+    if (is_app || enabled()) {
+        if (!strcmp(key, "ro.debuggable"))   return std::string("0");
+        if (!strcmp(key, "ro.secure"))       return std::string("1");
+        if (!strcmp(key, "ro.build.type"))   return std::string("user");
+        if (!strcmp(key, "ro.build.tags"))   return std::string("release-keys");
+        if (!strcmp(key, "ro.boot.warranty_bit") || !strcmp(key, "ro.warranty_bit")) return std::string("0");
+        if (!strcmp(key, "ro.boot.selinux")) return std::string("enforcing");
+    }
 
-    if (!enabled()) return {};
+    if (!enabled()) {
+        if (is_app) {
+            if (!strcmp(key, "ro.boot.verifiedbootstate")) return std::string("green");
+            if (!strcmp(key, "ro.boot.flash.locked")) return std::string("1");
+            if (!strcmp(key, "ro.boot.vbmeta.device_state")) return std::string("locked");
+            if (!strcmp(key, "ro.boot.veritymode")) return std::string("enforcing");
+            if (!strcmp(key, "ro.crypto.state")) return std::string("encrypted");
+            if (!strcmp(key, "ro.crypto.type"))  return std::string("file");
+            if (!strcmp(key, "vold.decrypt"))    return std::string("0");
+            if (!strcmp(key, "ro.adb.secure"))   return std::string("1");
+            if (!strcmp(key, "init.svc.adbd"))   return std::string("stopped");
+            if (!strcmp(key, "persist.service.adb.enable")) return std::string("0");
+        }
+        return {};
+    }
 
     // App isolation & boot security protection
     if (!strcmp(key, "ro.boot.verifiedbootstate")) {
@@ -351,8 +401,6 @@ std::string lookupProp(const char* key) {
         std::string v = get("veritymode");
         return v.empty() ? std::string("enforcing") : v;
     }
-    if (!strcmp(key, "ro.boot.warranty_bit") || !strcmp(key, "ro.warranty_bit")) return std::string("0");
-    if (!strcmp(key, "ro.boot.selinux")) return std::string("enforcing");
     if (!strcmp(key, "ro.serialno") || !strcmp(key, "ro.boot.serialno")) {
         std::string s = get("SerialNo");
         return s.empty() ? get("serial") : s;
