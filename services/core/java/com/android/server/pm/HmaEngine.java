@@ -106,6 +106,7 @@ public final class HmaEngine {
         "com.shopee.vn",
         "com.ss.android.ugc.trill",
         "com.zhiliaoapp.musically",
+        "com.twitter.android",
         "com.vnid",
         "com.vnpay.bidv",
         "com.vcombank.vcbdigibank",

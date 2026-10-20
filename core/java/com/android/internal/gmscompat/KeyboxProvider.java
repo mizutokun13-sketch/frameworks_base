@@ -113,110 +113,6 @@ public final class KeyboxProvider {
         }
     }
 
-    private static boolean isGmsOrPlayStoreCaller() {
-        try {
-            String pkg = android.app.ActivityThread.currentPackageName();
-            String proc = android.app.ActivityThread.currentProcessName();
-            if (pkg != null && (pkg.equals("com.google.android.gms")
-                    || pkg.equals("com.android.vending")
-                    || pkg.equals("com.google.android.gsf"))) {
-                return true;
-            }
-            if (proc != null && (proc.contains("com.google.android.gms")
-                    || proc.contains("com.android.vending")
-                    || proc.contains("com.google.android.gsf"))) {
-                return true;
-            }
-        } catch (Throwable ignored) {}
-        return false;
-    }
-
-    private static String getHwcfgField(String key, String fallback) {
-        try {
-            String val = android.os.SystemProperties.get("sys.hwcfg." + key, "");
-            if (val == null || val.trim().isEmpty()) {
-                val = android.os.SystemProperties.get("persist.sys.hwcfg." + key, "");
-            }
-            if (val != null && !val.trim().isEmpty()) {
-                return val.trim();
-            }
-            String[] dirs = { "/data/vendor/hwcfg/", "/data/vendor/hwcfg/Utils/" };
-            for (String dir : dirs) {
-                File f = new File(dir + key);
-                if (f.exists() && f.canRead()) {
-                    try (java.io.BufferedReader br = new java.io.BufferedReader(new FileReader(f))) {
-                        String line = br.readLine();
-                        if (line != null && !line.trim().isEmpty()) {
-                            return line.trim();
-                        }
-                    }
-                }
-            }
-        } catch (Throwable ignored) {}
-        return fallback != null ? fallback : "";
-    }
-
-    private static String getActiveProfileIdentity() {
-        String seed = getHwcfgField("seed", "");
-        String androidId = getHwcfgField("android_id", "");
-        String brand = getHwcfgField("brand", Build.BRAND);
-        String device = getHwcfgField("device", Build.DEVICE);
-        String model = getHwcfgField("model", Build.MODEL);
-        String serial = getHwcfgField("serial", "");
-        String fp = getHwcfgField("fingerprint", Build.FINGERPRINT);
-        return seed + "|" + androidId + "|" + brand + "|" + device + "|" + model + "|" + serial + "|" + fp;
-    }
-
-    private static byte[] sha256Bytes(String input) {
-        try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            return md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            byte[] out = new byte[32];
-            byte[] src = input.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            for (int i = 0; i < out.length; i++) {
-                out[i] = (byte) (src[i % src.length] ^ (i * 31 + 17));
-            }
-            return out;
-        }
-    }
-
-    private static BigInteger derivePositiveSerial(String domain, String identity) {
-        byte[] hash = sha256Bytes(domain + "|" + identity);
-        byte[] serialBytes = new byte[16];
-        System.arraycopy(hash, 0, serialBytes, 0, 16);
-        serialBytes[0] &= 0x7F;
-        if (serialBytes[0] == 0) {
-            serialBytes[0] = 0x42;
-        }
-        return new BigInteger(1, serialBytes);
-    }
-
-    private static X509Certificate buildDynamicIntermediateCert(
-            X509Certificate origInter, PrivateKey signKey, boolean isEc, String profileIdentity) {
-        try {
-            byte[] tokenHash = sha256Bytes("hwcfg/inter_subject/" + profileIdentity);
-            StringBuilder hexId = new StringBuilder();
-            for (int i = 0; i < 8; i++) {
-                hexId.append(String.format("%02x", tokenHash[i] & 0xff));
-            }
-            X509Principal dynamicSubject = new X509Principal(
-                    "O=Android, OU=Android Keystore, CN=Android Keystore Software Attestation Intermediate " + hexId);
-
-            X509V3CertificateGenerator gen = new X509V3CertificateGenerator();
-            gen.setSerialNumber(derivePositiveSerial("hwcfg/inter_serial", profileIdentity));
-            gen.setIssuerDN(new X509Principal(origInter.getIssuerX500Principal().getEncoded()));
-            gen.setNotBefore(origInter.getNotBefore());
-            gen.setNotAfter(origInter.getNotAfter());
-            gen.setSubjectDN(dynamicSubject);
-            gen.setPublicKey(origInter.getPublicKey());
-            gen.setSignatureAlgorithm(isEc ? "SHA256withECDSA" : "SHA256withRSA");
-            return gen.generate(signKey);
-        } catch (Throwable t) {
-            return origInter;
-        }
-    }
-
     public static void onKeyGenerated(String alias, PublicKey publicKey, byte[] challenge,
                                    int purposes, int keySize, boolean isEc) {
         if (alias == null || publicKey == null || challenge == null) return;
@@ -238,19 +134,10 @@ public final class KeyboxProvider {
         }
 
         try {
-            boolean isGms = isGmsOrPlayStoreCaller();
-            String profileIdentity = isGms ? "" : getActiveProfileIdentity();
-
-            X509Certificate issuerCert = isGms
-                    ? kb.certificates.get(0)
-                    : buildDynamicIntermediateCert(kb.certificates.get(0), kb.privateKey, isEc, profileIdentity);
-
+            X509Certificate issuerCert = kb.certificates.get(0);
             X509V3CertificateGenerator certGen = new X509V3CertificateGenerator();
 
-            BigInteger leafSerial = isGms
-                    ? BigInteger.valueOf(System.currentTimeMillis())
-                    : derivePositiveSerial("hwcfg/leaf_serial/" + alias, profileIdentity);
-            certGen.setSerialNumber(leafSerial);
+            certGen.setSerialNumber(BigInteger.valueOf(System.currentTimeMillis()));
             certGen.setIssuerDN(new X509Principal(issuerCert.getSubjectX500Principal().getEncoded()));
             certGen.setNotBefore(new Date(System.currentTimeMillis() - 120000)); // 2 min in past
             certGen.setNotAfter(new Date(System.currentTimeMillis() + 365L * 24 * 3600 * 1000)); // 1 year
@@ -258,40 +145,55 @@ public final class KeyboxProvider {
             certGen.setPublicKey(publicKey);
             certGen.setSignatureAlgorithm(isEc ? "SHA256withECDSA" : "SHA256withRSA");
 
-            DERSequence attestationExtension = buildAttestationExtension(
-                    challenge, isEc, keySize, purposes, isGms, profileIdentity);
+            DERSequence attestationExtension = buildAttestationExtension(challenge, isEc, keySize, purposes);
             certGen.addExtension(ATTESTATION_OID, false, attestationExtension);
 
             X509Certificate leafCert = certGen.generate(kb.privateKey);
 
             Certificate[] fullChain = new Certificate[1 + kb.certificates.size()];
             fullChain[0] = leafCert;
-            fullChain[1] = issuerCert;
-            for (int i = 1; i < kb.certificates.size(); i++) {
+            for (int i = 0; i < kb.certificates.size(); i++) {
                 fullChain[i + 1] = kb.certificates.get(i);
             }
 
             sEmulatedChains.put(alias, fullChain);
             Log.i(TAG, "[ATTESTATION SUCCESS] Generated hardware certificate chain for alias=" + alias
-                    + " isGms=" + isGms + " challengeLen=" + challenge.length + " certChainLen=" + fullChain.length);
+                    + " with challenge len=" + challenge.length + " certChainLen=" + fullChain.length);
         } catch (Exception e) {
             Log.e(TAG, "Failed to generate emulated attestation certificate for alias=" + alias, e);
         }
     }
 
-    private static DERSequence buildAttestationExtension(
-            byte[] challenge, boolean isEc, int keySize, int purposes, boolean isGms, String profileIdentity) {
+    private static DERSequence buildAttestationExtension(byte[] challenge, boolean isEc, int keySize, int purposes) {
         // 1. RootOfTrust
+        // For keybox-based attestation we must present a locked/verified device.
+        // Use deterministic non-zero hashes derived from the spoofed device identity.
+        // These don't need to match real Pixel 7 AVB key — they just need to be:
+        //   - Non-zero (required when verifiedBootState = Verified)
+        //   - Consistent across attestations (deterministic)
+        //   - 32 bytes (SHA-256 length)
         byte[] verifiedBootKey;
         byte[] verifiedBootHash;
-        if (isGms || profileIdentity == null || profileIdentity.isEmpty()) {
-            verifiedBootKey = sha256Bytes("google/panther/avb/key");
-            verifiedBootHash = sha256Bytes("google/panther/vbmeta/AP4A.250605.005");
-        } else {
-            verifiedBootKey = sha256Bytes("hwcfg/avb/key/" + profileIdentity);
-            verifiedBootHash = sha256Bytes("hwcfg/vbmeta/hash/" + profileIdentity);
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            verifiedBootKey = md.digest("google/panther/avb/key".getBytes());
+            md.reset();
+            verifiedBootHash = md.digest("google/panther/vbmeta/AP4A.250605.005".getBytes());
+        } catch (Exception e) {
+            // Fallback: deterministic non-zero values
+            verifiedBootKey = new byte[] {
+                (byte)0xd6, (byte)0x81, (byte)0x3c, (byte)0x52, (byte)0x1b, (byte)0x30, (byte)0x01, (byte)0xd6,
+                (byte)0x03, (byte)0xce, (byte)0x3f, (byte)0x0f, (byte)0x52, (byte)0x7b, (byte)0x0c, (byte)0xb3,
+                (byte)0x7a, (byte)0xd2, (byte)0xa3, (byte)0x62, (byte)0x93, (byte)0x34, (byte)0x4d, (byte)0xb0,
+                (byte)0x7d, (byte)0xe8, (byte)0x04, (byte)0x67, (byte)0xe1, (byte)0x3a, (byte)0x55, (byte)0x09
+            };
+            verifiedBootHash = new byte[] {
+                (byte)0x2a, (byte)0x1c, (byte)0xc0, (byte)0x0e, (byte)0x50, (byte)0xf0, (byte)0x70, (byte)0x39,
+                (byte)0xaa, (byte)0xf3, (byte)0x54, (byte)0x91, (byte)0x0c, (byte)0x2f, (byte)0xb1, (byte)0xce,
+                (byte)0xce, (byte)0x85, (byte)0xb8, (byte)0xea, (byte)0x39, (byte)0xc0, (byte)0x72, (byte)0x13,
+                (byte)0x5c, (byte)0xe5, (byte)0x75, (byte)0x65, (byte)0x67, (byte)0xa3, (byte)0x0c, (byte)0xe8
+            };
         }
-
         ASN1EncodableVector rotVec = new ASN1EncodableVector();
         rotVec.add(new DEROctetString(verifiedBootKey));  // verifiedBootKey
         rotVec.add(ASN1Boolean.TRUE);                      // deviceLocked = true
@@ -352,8 +254,8 @@ public final class KeyboxProvider {
         // Tag 704: RootOfTrust (SEQUENCE)
         teeVec.add(new DERTaggedObject(true, 704, rootOfTrust));
 
-        // Tag 705: OS Version (INTEGER): 130000 for Android 13
-        int osVersion = 130000;
+        // Tag 705: OS Version (INTEGER): 150000 for Android 15
+        int osVersion = 150000;
         try {
             int releaseInt = Integer.parseInt(Build.VERSION.RELEASE);
             osVersion = releaseInt * 10000;
@@ -363,47 +265,12 @@ public final class KeyboxProvider {
         // Tag 706: OS PatchLevel (INTEGER): e.g. 202506
         int patchLevel = 202506;
         try {
-            String patchStr = (isGms ? Build.VERSION.SECURITY_PATCH : getHwcfgField("securitypatch", Build.VERSION.SECURITY_PATCH)).replace("-", "");
+            String patchStr = Build.VERSION.SECURITY_PATCH.replace("-", "");
             if (patchStr.length() >= 6) {
                 patchLevel = Integer.parseInt(patchStr.substring(0, 6));
             }
         } catch (Exception ignored) {}
         teeVec.add(new DERTaggedObject(true, 706, new ASN1Integer(patchLevel)));
-
-        // Tags 710..717: Device identity tags matching active WantSpoof profile for non-GMS apps
-        if (!isGms) {
-            String brand = getHwcfgField("brand", Build.BRAND);
-            String device = getHwcfgField("device", Build.DEVICE);
-            String product = getHwcfgField("name", Build.PRODUCT);
-            String serial = getHwcfgField("serial", "");
-            String model = getHwcfgField("model", Build.MODEL);
-            String manufacturer = getHwcfgField("manufacturer", brand);
-
-            if (!brand.isEmpty()) {
-                teeVec.add(new DERTaggedObject(true, 710,
-                        new DEROctetString(brand.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
-            }
-            if (!device.isEmpty()) {
-                teeVec.add(new DERTaggedObject(true, 711,
-                        new DEROctetString(device.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
-            }
-            if (!product.isEmpty()) {
-                teeVec.add(new DERTaggedObject(true, 712,
-                        new DEROctetString(product.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
-            }
-            if (!serial.isEmpty()) {
-                teeVec.add(new DERTaggedObject(true, 713,
-                        new DEROctetString(serial.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
-            }
-            if (!model.isEmpty()) {
-                teeVec.add(new DERTaggedObject(true, 716,
-                        new DEROctetString(model.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
-            }
-            if (!manufacturer.isEmpty()) {
-                teeVec.add(new DERTaggedObject(true, 717,
-                        new DEROctetString(manufacturer.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
-            }
-        }
 
         // Tag 718: VendorPatchLevel (INTEGER)
         teeVec.add(new DERTaggedObject(true, 718, new ASN1Integer(patchLevel)));
@@ -424,6 +291,7 @@ public final class KeyboxProvider {
         DERSequence swEnforced = new DERSequence(swVec);
 
         // KeyDescription ::= SEQUENCE
+        // Pixel 7 (panther): KeyMint 2.0, attestation version 200
         ASN1EncodableVector keyDescVec = new ASN1EncodableVector();
         keyDescVec.add(new ASN1Integer(200)); // attestationVersion = 200 (KeyMint 2.0)
         keyDescVec.add(new ASN1Enumerated(1)); // attestationSecurityLevel = TrustedEnvironment (1)
@@ -557,9 +425,9 @@ public final class KeyboxProvider {
     private static void parseAndStoreKeybox(String algo, String privKeyPem, List<String> certPems) {
         try {
             String cleanAlgo = algo.toLowerCase();
-            boolean isEc = cleanAlgo.contains("ec");
-
             byte[] derBytes = decodePem(privKeyPem);
+            boolean isEc = cleanAlgo.contains("ec") || privKeyPem.contains("EC PRIVATE KEY")
+                    || (!cleanAlgo.contains("rsa") && !privKeyPem.contains("RSA PRIVATE KEY") && derBytes.length < 256);
             PrivateKey privateKey = parsePrivateKey(derBytes, isEc);
 
             CertificateFactory certFactory;
